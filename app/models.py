@@ -111,3 +111,46 @@ class Todo(Base):
     assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id], lazy="joined")
     created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
     done_by: Mapped[User | None] = relationship(foreign_keys=[done_by_id], lazy="joined")
+
+
+class Recipe(Base):
+    """A recipe, shared by the household. Steps are plain text, one per line."""
+
+    __tablename__ = "recipe"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    servings: Mapped[int | None] = mapped_column(Integer)
+    minutes: Mapped[int | None] = mapped_column(Integer)
+    source_url: Mapped[str] = mapped_column(String(500), default="", server_default="")
+    tags: Mapped[str] = mapped_column(String(200), default="", server_default="")
+    steps: Mapped[str] = mapped_column(Text, default="", server_default="")
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+    created_by: Mapped[User] = relationship(lazy="joined")
+    ingredients: Mapped[list["Ingredient"]] = relationship(
+        order_by="Ingredient.position", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def tag_list(self) -> list[str]:
+        return [t.strip() for t in self.tags.split(",") if t.strip()]
+
+    @property
+    def step_list(self) -> list[str]:
+        return [s.strip() for s in self.steps.splitlines() if s.strip()]
+
+
+class Ingredient(Base):
+    """One ingredient line as typed ("2 onions"), split into name and quantity for the shopping list."""
+
+    __tablename__ = "ingredient"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    recipe_id: Mapped[int] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    line: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(120))
+    quantity: Mapped[str] = mapped_column(String(40), default="", server_default="")

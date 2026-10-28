@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .db import Database
 from .migrate import upgrade
-from .models import Category, Item, User
-from . import shopping, todos
+from .models import Category, Item, Recipe, User
+from . import recipes, shopping, todos
 
 BASE_DIR = Path(__file__).parent
 
@@ -375,6 +375,75 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
         shopping.bump(session)
         session.commit()
         return todo_list_or_back(request, session, user, tl)
+
+    # ---- recipes ----
+
+    def own_recipe(session: Session, recipe_id: int) -> Recipe:
+        recipe = session.get(Recipe, recipe_id)
+        if recipe is None:
+            raise HTTPException(404)
+        return recipe
+
+    @app.get("/recipes")
+    def recipes_page(request: Request, session: SessionDep, user: UserDep, q: str = "", tag: str = ""):
+        return render(request, "recipes.html", user, recipes=recipes.search(session, q, tag),
+                      tags=recipes.all_tags(session), q=q, tag=tag)
+
+    @app.get("/recipes/new")
+    def new_recipe_form(request: Request, user: UserDep):
+        return render(request, "recipe_form.html", user, recipe=None, form={})
+
+    @app.post("/recipes")
+    async def add_recipe(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        recipe = Recipe(created_by=user)
+        try:
+            recipes.apply_form(recipe, form)
+        except shopping.FormError as e:
+            return render(request, "recipe_form.html", user, status_code=422, recipe=None, error=str(e), form=dict(form))
+        session.add(recipe)
+        shopping.bump(session)
+        session.commit()
+        return back(f"/recipes/{recipe.id}")
+
+    @app.get("/recipes/{recipe_id}")
+    def recipe_page(recipe_id: int, request: Request, session: SessionDep, user: UserDep, added: int | None = None):
+        return render(request, "recipe.html", user, recipe=own_recipe(session, recipe_id), added=added)
+
+    @app.get("/recipes/{recipe_id}/edit")
+    def edit_recipe_form(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        return render(request, "recipe_form.html", user, recipe=recipe, form=recipes.form_values(recipe))
+
+    @app.post("/recipes/{recipe_id}/edit")
+    async def edit_recipe(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        form = await request.form()
+        try:
+            recipes.apply_form(recipe, form)
+        except shopping.FormError as e:
+            session.rollback()
+            return render(request, "recipe_form.html", user, status_code=422, recipe=own_recipe(session, recipe_id),
+                          error=str(e), form=dict(form))
+        shopping.bump(session)
+        session.commit()
+        return back(f"/recipes/{recipe.id}")
+
+    @app.post("/recipes/{recipe_id}/delete")
+    def delete_recipe(recipe_id: int, session: SessionDep, user: UserDep):
+        session.delete(own_recipe(session, recipe_id))
+        shopping.bump(session)
+        session.commit()
+        return back("/recipes")
+
+    @app.post("/recipes/{recipe_id}/shopping")
+    async def recipe_to_shopping(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        form = await request.form()
+        ids = {i for i in (_int_or_none(v) for v in form.getlist("ingredient")) if i is not None}
+        added = recipes.to_shopping(session, user, recipe, ids)
+        session.commit()
+        return back(f"/recipes/{recipe.id}?added={len(added)}")
 
     # ---- categories ----
 

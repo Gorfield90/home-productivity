@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}{{ recipe.title }} · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/recipes" class="back">{{ icon('left') }} Recipes</a><h1>{{ recipe.title }}</h1>
+    <p class="recipe-meta">{% if recipe.minutes %}<span>{{ icon('clock') }} {{ recipe.minutes }} min</span>{% endif %}
+      {% if recipe.servings %}<span>{{ icon('users') }} Serves {{ recipe.servings }}</span>{% endif %}
+      {% if recipe.source_url %}<a href="{{ recipe.source_url }}" target="_blank" rel="noopener noreferrer">{{ icon('link') }} Original</a>{% endif %}</p>
+    {% if recipe.tag_list %}<p class="tags">{% for t in recipe.tag_list %}<a class="tag" href="/recipes?tag={{ t|urlencode }}">{{ t }}</a>{% endfor %}</p>{% endif %}</div>
+  <a class="head-link" href="/recipes/{{ recipe.id }}/edit">{{ icon('edit') }} Edit</a>
+</div>
+
+{% if added is not none %}<p class="flash" role="status">{% if added %}{{ added }} ingredient{{ '' if added == 1 else 's' }} added to the <a href="/shopping">shopping list</a>.{% else %}Nothing was selected, so nothing was added.{% endif %}</p>{% endif %}
+
+<div class="recipe-cols">
+  <section class="card">
+    <h2>Ingredients</h2>
+    {% if recipe.ingredients %}
+    <form method="post" action="/recipes/{{ recipe.id }}/shopping" class="ingredients">
+      <ul>
+        {% for ing in recipe.ingredients %}
+        <li><label><input type="checkbox" name="ingredient" value="{{ ing.id }}" checked> {{ ing.line }}</label></li>
+        {% endfor %}
+      </ul>
+      <button type="submit" class="small-btn">{{ icon('cart') }} Add ticked to shopping list</button>
+      <small class="muted">Untick what you already have at home.</small>
+    </form>
+    {% else %}<p class="muted">No ingredients yet.</p>{% endif %}
+  </section>
+  <section class="card">
+    <h2>Steps</h2>
+    {% if recipe.step_list %}
+    <ol class="steps">{% for s in recipe.step_list %}<li>{{ s }}</li>{% endfor %}</ol>
+    {% else %}<p class="muted">No steps yet.</p>{% endif %}
+    {% if recipe.notes %}<h2>Notes</h2><p class="pre">{{ recipe.notes }}</p>{% endif %}
+  </section>
+</div>
+<p class="muted small">Added by {{ recipe.created_by.display_name }}.</p>
+{% endblock %}
