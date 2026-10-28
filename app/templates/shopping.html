@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Shopping list · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Shopping list</h1><p>Shared with everyone at home. Tap an item to put it in the trolley.</p></div>
+</div>
+
+<form class="card add-form" method="post" action="/shopping/items" data-live data-add>
+  <input name="text" placeholder="Add an item, e.g. 2 milk" aria-label="Item" autocomplete="off" autocapitalize="sentences"
+         enterkeyhint="done" maxlength="160" required {% if not groups %}autofocus{% endif %}>
+  <select name="category_id" aria-label="Aisle">
+    <option value="">Aisle: auto</option>
+    {% for c in categories %}<option value="{{ c.id }}">{{ c.icon }} {{ c.name }}</option>{% endfor %}
+  </select>
+  <button type="submit" aria-label="Add">{{ icon('plus') }}<span class="wide-only">Add</span></button>
+</form>
+
+<div id="list" aria-live="polite">
+  {% include "_shopping_list.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='shopping.js') }}?v={{ version }}"></script>{% endblock %}

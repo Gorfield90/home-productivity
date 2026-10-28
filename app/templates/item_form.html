@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}{{ item.name }} · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/shopping" class="back">{{ icon('left') }} Shopping list</a><h1>{{ item.name }}</h1>
+    <p>Added by {{ item.added_by.display_name }}</p></div>
+</div>
+<form class="card narrow" method="post" action="/shopping/items/{{ item.id }}">
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <label>Item <input name="name" value="{{ form.get('name', '') }}" maxlength="120" required></label>
+  <label>Quantity <input name="quantity" value="{{ form.get('quantity', '') }}" maxlength="40" placeholder="optional, e.g. 2 or 500g"></label>
+  <label>Aisle
+    <select name="category_id">
+      <option value="">🛒 Other</option>
+      {% for c in categories %}<option value="{{ c.id }}" {% if form.get('category_id')|string == c.id|string %}selected{% endif %}>{{ c.icon }} {{ c.name }}</option>{% endfor %}
+    </select></label>
+  <label>Note <textarea name="note" rows="2" maxlength="500" placeholder="optional, e.g. the brand or which shop">{{ form.get('note', '') }}</textarea></label>
+  <div class="form-actions"><button type="submit">Save</button><a href="/shopping">Cancel</a></div>
+</form>
+<form class="narrow" method="post" action="/shopping/items/{{ item.id }}/delete">
+  <button type="submit" class="link danger">Delete from the list</button>
+</form>
+{% endblock %}

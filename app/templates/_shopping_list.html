@@ -1,0 +1,67 @@
+{% from "_ui.html" import icon, avatar %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% elif added %}<p class="flash">{{ added }}</p>{% endif %}
+
+{% if groups %}
+<section class="card shop">
+  {% for g in groups %}
+  <h2 class="aisle"><span class="aisle-ic">{{ g.icon }}</span>{{ g.title }} <small class="muted">{{ g.items|length }}</small></h2>
+  <ul class="items">
+    {% for it in g.items %}
+    <li class="item">
+      <form method="post" action="/shopping/items/{{ it.id }}/toggle" data-live data-toggle>
+        <button type="submit" class="tick" aria-label="Tick {{ it.name }}"><span class="box">{{ icon('check') }}</span>
+          <span class="what"><span class="name">{{ it.name }}</span>{% if it.quantity %} <span class="qty">{{ it.quantity }}</span>{% endif %}
+          {% if it.note %}<small class="note-line">{{ it.note }}</small>{% endif %}</span></button>
+      </form>
+      {{ avatar(it.added_by, colors, 'Added by ' ~ it.added_by.display_name) }}
+      <a class="edit" href="/shopping/items/{{ it.id }}" aria-label="Edit {{ it.name }}" title="Edit">{{ icon('edit') }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+{% elif not ticked %}
+<p class="card empty">Nothing on the list. Add something above{% if recent %}, or pick from what you bought before{% endif %}.</p>
+{% endif %}
+
+{% if ticked %}
+<section class="card shop ticked">
+  <div class="card-title"><h2>In the trolley <small class="muted">{{ ticked|length }}</small></h2>
+    <form method="post" action="/shopping/clear" data-live><button type="submit" class="small-btn">{{ icon('check') }} Done shopping</button></form></div>
+  <ul class="items">
+    {% for it in ticked %}
+    <li class="item done">
+      <form method="post" action="/shopping/items/{{ it.id }}/toggle" data-live data-toggle>
+        <button type="submit" class="tick" aria-label="Put {{ it.name }} back on the list"><span class="box">{{ icon('check') }}</span>
+          <span class="what"><span class="name">{{ it.name }}</span>{% if it.quantity %} <span class="qty">{{ it.quantity }}</span>{% endif %}</span></button>
+      </form>
+      {% if it.checked_by %}{{ avatar(it.checked_by, colors, 'Ticked by ' ~ it.checked_by.display_name) }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  <small class="muted">"Done shopping" takes these off the list. They stay below as recently bought.</small>
+</section>
+{% endif %}
+
+{% if recent %}
+<section class="card recent">
+  <h2>Recently bought</h2>
+  <ul class="chips">
+    {% for it in recent %}
+    <li>
+      <form method="post" action="/shopping/items" data-live>
+        <input type="hidden" name="text" value="{{ it.name }}">
+        {% if it.category_id %}<input type="hidden" name="category_id" value="{{ it.category_id }}">{% endif %}
+        <button type="submit" class="readd" title="Add {{ it.name }} again">{{ icon('plus') }} {{ it.name }}</button>
+      </form>
+      <form method="post" action="/shopping/forget" data-live class="forget">
+        <input type="hidden" name="name" value="{{ it.name }}">
+        <button type="submit" aria-label="Remove {{ it.name }} from this list" title="Remove from suggestions">{{ icon('x') }}</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+</div>

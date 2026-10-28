@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e '.[dev]'
+      - run: ruff check .
+      - run: pytest -q
+
+  # Builds in parallel with the tests to save time; deploy-pr waits for both,
+  # so a failing build never reaches the homelab.
+  image:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+            type=raw,value=main,enable={{is_default_branch}}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: HP_VERSION=${{ steps.version.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Opens (or updates) one PR in the homelab repo that bumps the Home app image
+  # to this build. Merging it is the deploy: Flux applies it, and the pod's
+  # backup initContainer copies the database before the new version starts.
+  # Releases without DB migrations are merged here automatically; releases
+  # with migrations (or an unknown range) wait for a human merge.
+  # Needs secret HOMELAB_PR_TOKEN: a fine-grained token for
+  # Gorfield90/homelab-manual only, with Contents + Pull requests read/write.
+  deploy-pr:
+    needs: [test, image]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: deploy-pr
+    env:
+      FILE: k8s/apps/home-app/kustomization.yaml
+    steps:
+      - id: token
+        env:
+          TOKEN: ${{ secrets.HOMELAB_PR_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"
+          else echo "::notice::HOMELAB_PR_TOKEN is not set, so no deploy PR was opened"; fi
+      - if: steps.token.outputs.ok
+        uses: actions/checkout@v4
+        with:
+          path: app
+          fetch-depth: 0
+      - if: steps.token.outputs.ok
+        uses: actions/checkout@v4
+        with:
+          repository: Gorfield90/homelab-manual
+          ref: master
+          token: ${{ secrets.HOMELAB_PR_TOKEN }}
+          path: homelab
+      - id: bump
+        if: steps.token.outputs.ok
+        run: |
+          new="sha-${GITHUB_SHA::7}"
+          old=$(sed -n 's/^ *newTag: *//p' "homelab/$FILE")
+          if [ -z "$old" ]; then echo "::error::no newTag in $FILE"; exit 1; fi
+          if [ "$old" = "$new" ]; then echo "::notice::$new is already deployed"; exit 0; fi
+          sed -i "s/^\( *newTag: *\).*/\1$new/" "homelab/$FILE"
+
+          range="${old#sha-}..$GITHUB_SHA"
+          title="home-app: deploy $new"
+          safe=false
+          {
+            echo "Deploys Home \`$new\` (currently \`$old\`)."
+            echo
+            if git -C app rev-parse -q --verify "${old#sha-}^{commit}" >/dev/null; then
+              migrations=$(git -C app diff --name-only --diff-filter=A "$range" -- app/migrations/versions)
+              if [ -n "$migrations" ]; then
+                title="$title (DB migration)"
+                echo "**Contains database migrations.** Rolling back means restoring the \`home-predeploy-*\` backup this rollout takes, not only reverting this PR:"
+                echo "$migrations" | sed 's/^/- `/; s/$/`/'
+              else
+                safe=true
+                echo "No database migrations, so CI merges this automatically. Reverting it is a safe rollback."
+              fi
+              echo
+              echo "### Changes"
+              git -C app log --no-merges --format='- %s (%h)' "$range"
+            else
+              echo "Couldn't find \`$old\` in the app history, so changes and migrations aren't listed."
+            fi
+            echo
+            echo "Merging deploys it. Flux applies the new tag, and the backup initContainer copies the database before the app starts."
+          } > body.md
+          echo "title=$title" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "safe=$safe" >> "$GITHUB_OUTPUT"
+      - id: pr
+        if: steps.bump.outputs.changed
+        uses: peter-evans/create-pull-request@v7
+        with:
+          path: homelab
+          token: ${{ secrets.HOMELAB_PR_TOKEN }}
+          base: master
+          branch: home-app/deploy
+          delete-branch: true
+          commit-message: ${{ steps.bump.outputs.title }}
+          title: ${{ steps.bump.outputs.title }}
+          body-path: body.md
+      - if: steps.bump.outputs.safe == 'true' && steps.pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.HOMELAB_PR_TOKEN }}
+        run: gh pr merge "${{ steps.pr.outputs.pull-request-number }}" -R Gorfield90/homelab-manual --squash --delete-branch
