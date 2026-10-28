@@ -101,3 +101,27 @@ def test_delete_recipe(client):
     assert client.get(f"/recipes/{rid}").status_code == 404
     with client.app.state.db.sessionmaker() as s:
         assert s.scalars(select(Item)).all() == []
+
+
+def test_recipe_photos(client):
+    from app.models import Photo
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+    r = client.post("/recipes", data=BRAS, follow_redirects=False)
+    rid = int(r.headers["location"].rsplit("/", 1)[1])
+    assert "Take one next time you make it" in client.get(f"/recipes/{rid}").text
+    r = client.post(f"/recipes/{rid}/photos", files={"photo": ("p.jpg", jpeg, "image/jpeg")}, follow_redirects=False)
+    assert r.headers["location"] == f"/recipes/{rid}"
+    with client.app.state.db.sessionmaker() as s:
+        ph = s.scalar(select(Photo))
+        assert ph.recipe_id == rid and ph.plant_id is None
+    assert 'class="recipe-hero"' in client.get(f"/recipes/{rid}").text
+    assert f"/photos/{ph.id}/thumb" in client.get("/recipes").text
+    r = client.post(f"/recipes/{rid}/photos", files={"photo": ("x", b"not a photo", "image/jpeg")})
+    assert r.status_code == 422 and "a photo the app can show" in r.text and "Bacalhau" in r.text
+    assert client.post(f"/photos/{ph.id}/delete", follow_redirects=False).headers["location"] == f"/recipes/{rid}"
+    # Deleting the recipe takes its photos with it.
+    client.post(f"/recipes/{rid}/photos", files={"photo": ("p.jpg", jpeg, "image/jpeg")})
+    client.post(f"/recipes/{rid}/delete")
+    with client.app.state.db.sessionmaker() as s:
+        assert not s.scalars(select(Photo)).all()

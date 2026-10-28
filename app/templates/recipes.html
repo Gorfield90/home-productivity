@@ -18,7 +18,8 @@
 {% if recipes %}
 <ul class="recipe-grid">
   {% for r in recipes %}
-  <li><a class="card recipe-card" href="/recipes/{{ r.id }}">
+  <li><a class="card recipe-card{% if r.photos %} with-photo{% endif %}" href="/recipes/{{ r.id }}">
+    {% if r.photos %}<img class="recipe-thumb" src="/photos/{{ r.photos[0].id }}/thumb" alt="" loading="lazy">{% endif %}
     <strong>{{ r.title }}</strong>
     <span class="meta">{% if r.minutes %}{{ icon('clock') }} {{ r.minutes }} min{% endif %}{% if r.servings %} {{ icon('users') }} {{ r.servings }}{% endif %}
       <span>{{ r.ingredients|length }} ingredient{{ '' if r.ingredients|length == 1 else 's' }}</span></span>

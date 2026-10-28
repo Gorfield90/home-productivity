@@ -10,6 +10,10 @@
   <a class="head-link" href="/recipes/{{ recipe.id }}/edit">{{ icon('edit') }} Edit</a>
 </div>
 
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+{% if recipe.photos %}<a class="recipe-hero" href="/photos/{{ recipe.photos[0].id }}" target="_blank" rel="noopener">
+  <img src="/photos/{{ recipe.photos[0].id }}" alt="{{ recipe.title }}"></a>{% endif %}
+
 {% if added is not none %}<p class="flash" role="status">{% if added %}{{ added }} ingredient{{ '' if added == 1 else 's' }} added to the <a href="/shopping">shopping list</a>.{% else %}Nothing was selected, so nothing was added.{% endif %}</p>{% endif %}
 
 <div class="recipe-cols">
@@ -35,5 +39,8 @@
     {% if recipe.notes %}<h2>Notes</h2><p class="pre">{{ recipe.notes }}</p>{% endif %}
   </section>
 </div>
+{% with photos=recipe.photos, action="/recipes/%d/photos" % recipe.id, alt=recipe.title,
+        hint="Take one next time you make it. The newest one shows at the top and in the recipe list." %}{% include "_photos.html" %}{% endwith %}
 <p class="muted small">Added by {{ recipe.created_by.display_name }}.</p>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='photo.js') }}?v={{ version }}"></script>{% endblock %}
