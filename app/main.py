@@ -417,6 +417,13 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     def recipe_page(recipe_id: int, request: Request, session: SessionDep, user: UserDep, added: int | None = None):
         return render(request, "recipe.html", user, recipe=own_recipe(session, recipe_id), added=added)
 
+    @app.post("/recipes/{recipe_id}/photos")
+    async def add_recipe_photo(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        return await add_photo(request, session, user, f"/recipes/{recipe.id}", {"recipe_id": recipe.id},
+                               lambda error: render(request, "recipe.html", user, status_code=422, recipe=recipe,
+                                                    added=None, error=error))
+
     @app.get("/recipes/{recipe_id}/edit")
     def edit_recipe_form(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
         recipe = own_recipe(session, recipe_id)
@@ -721,18 +728,23 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     @app.post("/plants/{plant_id}/photos")
     async def add_plant_photo(plant_id: int, request: Request, session: SessionDep, user: UserDep):
         plant = own_plant(session, plant_id)
+        return await add_photo(request, session, user, f"/plants/{plant.id}", {"plant_id": plant.id},
+                               lambda error: plant_page_response(request, session, user, plant, error=error, status_code=422))
+
+    # ---- photos ----
+
+    async def add_photo(request: Request, session: Session, user: User, page: str, owner: dict, on_error):
+        """Store an uploaded photo for its owner, then back to the owner's page (or that page with the error)."""
         form = await request.form(max_part_size=photos.UPLOAD_LIMIT)
         try:
             photo = photos.make(user, await photos.read_upload(form.get("photo")),
-                                await photos.read_upload(form.get("thumb")), plant_id=plant.id)
+                                await photos.read_upload(form.get("thumb")), **owner)
         except shopping.FormError as e:
-            return plant_page_response(request, session, user, plant, error=str(e), status_code=422)
+            return on_error(str(e))
         session.add(photo)
         shopping.bump(session)
         session.commit()
-        return back(f"/plants/{plant.id}")
-
-    # ---- photos ----
+        return back(page)
 
     def own_photo(session: Session, photo_id: int):
         photo = photos.load(session, photo_id)
@@ -757,7 +769,7 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     @app.post("/photos/{photo_id}/delete")
     def delete_photo(photo_id: int, session: SessionDep, user: UserDep):
         photo = own_photo(session, photo_id)
-        where = f"/plants/{photo.plant_id}" if photo.plant_id else "/"
+        where = photos.owner_url(photo)
         session.delete(photo)
         shopping.bump(session)
         session.commit()

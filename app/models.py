@@ -133,6 +133,8 @@ class Recipe(Base):
     created_by: Mapped[User] = relationship(lazy="joined")
     ingredients: Mapped[list["Ingredient"]] = relationship(
         order_by="Ingredient.position", cascade="all, delete-orphan", lazy="selectin")
+    photos: Mapped[list["Photo"]] = relationship(
+        order_by="Photo.id.desc()", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def tag_list(self) -> list[str]:
@@ -248,13 +250,14 @@ class Watering(Base):
 class Photo(Base):
     """A photo, shrunk on the phone before upload and kept in the database so the nightly backup has it.
 
-    It belongs to one thing (for now a plant). The image bytes are only loaded when the photo is served.
+    It belongs to one thing: a plant or a recipe. The image bytes are only loaded when the photo is served.
     """
 
     __tablename__ = "photo"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     plant_id: Mapped[int | None] = mapped_column(ForeignKey("plant.id", ondelete="CASCADE"), index=True)
+    recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipe.id", ondelete="CASCADE"), index=True)
     content_type: Mapped[str] = mapped_column(String(30))
     data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     thumb: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)

@@ -42,7 +42,7 @@ def check(data: bytes) -> str:
 
 
 def make(user: User, data: bytes, thumb: bytes = b"", **owner) -> Photo:
-    """A new photo for its owner (plant_id=...). A thumbnail that isn't a valid image is dropped; the full photo is
+    """A new photo for its owner (plant_id=... or recipe_id=...). A thumbnail that isn't a valid image is dropped; the full photo is
     shown in its place."""
     ctype = check(data)
     if thumb and (len(thumb) > MAX_BYTES or not sniff(thumb)):
@@ -52,3 +52,12 @@ def make(user: User, data: bytes, thumb: bytes = b"", **owner) -> Photo:
 
 def load(session: Session, photo_id: int) -> Photo | None:
     return session.get(Photo, photo_id)
+
+
+def owner_url(photo: Photo) -> str:
+    """The page a photo is shown on."""
+    if photo.plant_id:
+        return f"/plants/{photo.plant_id}"
+    if photo.recipe_id:
+        return f"/recipes/{photo.recipe_id}"
+    return "/"

@@ -23,25 +23,8 @@
   {% endif %}
 </section>
 
-<section class="card">
-  <div class="card-title"><h2>Photos</h2></div>
-  {% if p.photos %}
-  <ul class="photo-grid">
-    {% for ph in p.photos %}
-    <li><a href="/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/photos/{{ ph.id }}/thumb" alt="{{ p.name }}, {{ ph.created_at.strftime('%-d %b %Y') }}" loading="lazy"></a>
-      <small class="muted">{{ ph.created_at.strftime('%-d %b %Y') }}</small>
-      <details class="inline-del"><summary aria-label="Delete this photo" title="Delete">{{ icon('x') }}</summary>
-        <form method="post" action="/photos/{{ ph.id }}/delete" class="del-box"><button type="submit" class="small-btn danger">Delete photo</button></form></details></li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-  <form method="post" action="/plants/{{ p.id }}/photos" enctype="multipart/form-data" class="photo-add" data-photo>
-    <label class="small-btn file-btn">{{ icon('camera') }} <span>Add a photo</span>
-      <input type="file" name="photo" accept="image/*" required></label>
-    <noscript><button type="submit" class="small-btn">Upload</button></noscript>
-    <small class="muted photo-msg" role="status">{% if not p.photos %}Add one to see how it grows. The newest one shows on the list.{% endif %}</small>
-  </form>
-</section>
+{% with photos=p.photos, action="/plants/%d/photos" % p.id, alt=p.name,
+        hint="Add one to see how it grows. The newest one shows on the list." %}{% include "_photos.html" %}{% endwith %}
 
 {% if p.notes %}<section class="card"><h2>Notes</h2><p class="pre">{{ p.notes }}</p></section>{% endif %}
 
