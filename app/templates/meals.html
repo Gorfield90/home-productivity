@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Meal plan · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Meal plan</h1><p>Lunches and dinners for the week, from your recipes or just a few words.</p></div>
+  <a class="head-link" href="/meals/shopping?week={{ start.isoformat() }}">{{ icon('cart') }} Shop for this week</a>
+</div>
+<nav class="week-nav" aria-label="Week">
+  <a href="/meals?week={{ prev.isoformat() }}" aria-label="Previous week">{{ icon('left') }}</a>
+  {% set end = days[-1].day %}<strong>{{ start.day }}{% if start.month != end.month %} {{ start.strftime('%b') }}{% endif %} – {{ end.day }} {{ end.strftime('%b') }}</strong>
+  <a href="/meals?week={{ next.isoformat() }}" aria-label="Next week">{{ icon('right') }}</a>
+  {% if start != this_week %}<a class="this-week" href="/meals">This week</a>{% endif %}
+</nav>
+<div id="live" data-src="/meals/fragment?week={{ start.isoformat() }}" aria-live="polite">
+  {% include "_meals_week.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>
+<script>
+  // On a phone the days are stacked: start at today rather than Monday.
+  if (matchMedia('(max-width: 800px)').matches) document.querySelector('.day-card.today')?.scrollIntoView({ block: 'start' });
+</script>{% endblock %}

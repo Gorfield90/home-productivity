@@ -230,6 +230,34 @@ p.small { font-size: .85rem; margin-top: 1rem; }
 .grid-3 { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: .6rem; }
 .narrow.wide-form { max-width: 44rem; }
 
+/* ---------- meal plan ---------- */
+
+.week-nav { display: inline-flex; align-items: center; gap: .25rem; background: var(--card); border-radius: .7rem;
+  box-shadow: var(--shadow); padding: .25rem; margin-bottom: 1rem; }
+.week-nav a { display: grid; place-items: center; min-width: 2rem; height: 2rem; border-radius: .45rem; color: var(--mut); text-decoration: none; }
+.week-nav a:hover { background: var(--soft); color: var(--ink); }
+.week-nav strong { padding: 0 .5rem; min-width: 7.5rem; text-align: center; }
+.week-nav a.this-week { padding: 0 .6rem; font-size: .85rem; color: var(--acc); }
+.week { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: .8rem; }
+.day-card { margin: 0; }
+.day-card h2 { font-size: 1rem; margin: 0 0 .5rem; display: flex; align-items: baseline; gap: .4rem; }
+.day-card.today { box-shadow: 0 0 0 2px var(--acc); }
+.day-card.past { opacity: .7; }
+.slot { display: grid; grid-template-columns: 4.2rem 1fr; gap: .5rem; padding: .35rem 0; border-top: 1px solid var(--line); }
+.slot-name { color: var(--mut); font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; padding-top: .15rem; }
+ul.meals { list-style: none; margin: 0; padding: 0; }
+ul.meals li { list-style: none; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: .3rem; }
+ul.meals li a { font-weight: 500; text-decoration: none; }
+ul.meals li.none { padding: .15rem 0; }
+details.add-meal { margin: .4rem 0 0; }
+details.add-meal > summary { list-style: none; cursor: pointer; color: var(--acc); font-size: .9rem; font-weight: 500; display: inline-flex; align-items: center; gap: .3rem; }
+details.add-meal > summary::-webkit-details-marker, details.add-meal > summary::after { display: none; }
+details.add-meal form { display: grid; gap: .45rem; margin: .5rem 0 0; }
+details.add-meal form > * { margin: 0; }
+details.add-meal .seg { margin: 0; justify-self: start; }
+.sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: .9rem 0; z-index: 2; }
+.sticky-actions button { width: auto; margin: 0; display: inline-flex; align-items: center; gap: .4rem; }
+
 /* ---------- aisles ---------- */
 
 .cat-row { display: flex; align-items: center; gap: .3rem; padding: .45rem 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
@@ -274,6 +302,8 @@ details.inline-del .del-box { display: flex; gap: .5rem; flex-wrap: wrap; align-
   /* The add box stays in reach while scrolling a long list in the shop. */
   .add-form { position: sticky; top: .4rem; z-index: 5; grid-template-columns: 1fr 2.9rem; }
   .recipe-cols { grid-template-columns: 1fr; }
+  .week { grid-template-columns: 1fr; }
+  .sticky-actions { bottom: 4.6rem; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
   .grid-3 > :last-child { grid-column: 1 / -1; }
   ul.recipe-grid { grid-template-columns: 1fr; gap: .6rem; }

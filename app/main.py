@@ -6,7 +6,7 @@ back, so the page updates in place and stays where it was.
 """
 
 from contextlib import asynccontextmanager
-from datetime import date, timezone
+from datetime import date, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .db import Database
 from .migrate import upgrade
-from .models import Category, Item, Recipe, User
-from . import recipes, shopping, todos
+from .models import SLOTS, Category, Item, Meal, Recipe, User
+from . import meals, recipes, shopping, todos
 
 BASE_DIR = Path(__file__).parent
 
@@ -58,7 +58,7 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     app.state.settings = settings
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     templates = Jinja2Templates(directory=BASE_DIR / "templates")
-    templates.env.globals.update(version=settings.version, due_label=lambda d: todos.due_label(d, today()))
+    templates.env.globals.update(version=settings.version, due_label=lambda d: todos.due_label(d, today()), SLOTS=SLOTS)
 
     def get_session():
         yield from db.session()
@@ -431,7 +431,9 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
 
     @app.post("/recipes/{recipe_id}/delete")
     def delete_recipe(recipe_id: int, session: SessionDep, user: UserDep):
-        session.delete(own_recipe(session, recipe_id))
+        recipe = own_recipe(session, recipe_id)
+        meals.keep_names(session, recipe)
+        session.delete(recipe)
         shopping.bump(session)
         session.commit()
         return back("/recipes")
@@ -444,6 +446,69 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
         added = recipes.to_shopping(session, user, recipe, ids)
         session.commit()
         return back(f"/recipes/{recipe.id}?added={len(added)}")
+
+    # ---- meal planner ----
+
+    def meals_context(session: Session, start, **extra) -> dict:
+        return {"start": start, "days": meals.week(session, start), "today": today(),
+                "this_week": meals.monday(today()), "prev": start - timedelta(days=7), "next": start + timedelta(days=7),
+                "recipes": recipes.search(session), "planned": meals.week_recipes(session, start),
+                "colors": user_colors(session), "rev": shopping.revision(session), **extra}
+
+    def meals_or_back(request: Request, session: Session, user: User, start, error: str = ""):
+        if wants_fragment(request):
+            return render(request, "_meals_week.html", user, status_code=422 if error else 200,
+                          **meals_context(session, start, error=error))
+        if error:
+            return render(request, "meals.html", user, status_code=422, **meals_context(session, start, error=error))
+        return back(f"/meals?week={start.isoformat()}")
+
+    @app.get("/meals")
+    def meals_page(request: Request, session: SessionDep, user: UserDep, week: str | None = None):
+        return render(request, "meals.html", user, **meals_context(session, meals.parse_week(week, today())))
+
+    @app.get("/meals/fragment")
+    def meals_fragment(request: Request, session: SessionDep, user: UserDep, week: str | None = None):
+        return render(request, "_meals_week.html", user, **meals_context(session, meals.parse_week(week, today())))
+
+    @app.post("/meals")
+    async def add_meal(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        start = meals.parse_week(str(form.get("day", "")), today())
+        try:
+            meals.add_meal(session, user, str(form.get("day", "")), str(form.get("slot", "")),
+                           form.get("recipe_id"), str(form.get("text", "")))
+        except shopping.FormError as e:
+            return meals_or_back(request, session, user, start, error=str(e))
+        session.commit()
+        return meals_or_back(request, session, user, start)
+
+    @app.post("/meals/{meal_id}/delete")
+    def delete_meal(meal_id: int, request: Request, session: SessionDep, user: UserDep):
+        meal = session.get(Meal, meal_id)
+        if meal is None:
+            raise HTTPException(404)
+        start = meals.monday(meal.day)
+        session.delete(meal)
+        shopping.bump(session)
+        session.commit()
+        return meals_or_back(request, session, user, start)
+
+    @app.get("/meals/shopping")
+    def week_shopping_page(request: Request, session: SessionDep, user: UserDep, week: str | None = None,
+                           added: int | None = None):
+        start = meals.parse_week(week, today())
+        return render(request, "meals_shopping.html", user, start=start, planned=meals.week_recipes(session, start),
+                      added=added)
+
+    @app.post("/meals/shopping")
+    async def week_to_shopping(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        start = meals.parse_week(str(form.get("week", "")), today())
+        ids = {i for i in (_int_or_none(v) for v in form.getlist("ingredient")) if i is not None}
+        added = meals.week_to_shopping(session, user, start, ids)
+        session.commit()
+        return back(f"/meals/shopping?week={start.isoformat()}&added={added}")
 
     # ---- categories ----
 

@@ -154,3 +154,28 @@ class Ingredient(Base):
     line: Mapped[str] = mapped_column(String(200))
     name: Mapped[str] = mapped_column(String(120))
     quantity: Mapped[str] = mapped_column(String(40), default="", server_default="")
+
+
+# The meals a day can have on the plan, in the order they are eaten.
+SLOTS = {"lunch": "Lunch", "dinner": "Dinner"}
+
+
+class Meal(Base):
+    """One dish planned for a day's lunch or dinner: a recipe, or just a few words ("leftovers")."""
+
+    __tablename__ = "meal"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    day: Mapped[date] = mapped_column(Date, index=True)
+    slot: Mapped[str] = mapped_column(String(10))
+    recipe_id: Mapped[int | None] = mapped_column(ForeignKey("recipe.id", ondelete="SET NULL"))
+    text: Mapped[str] = mapped_column(String(120), default="", server_default="")
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    recipe: Mapped[Recipe | None] = relationship(lazy="joined")
+    created_by: Mapped[User] = relationship(lazy="joined")
+
+    @property
+    def label(self) -> str:
+        return self.recipe.title if self.recipe else self.text
