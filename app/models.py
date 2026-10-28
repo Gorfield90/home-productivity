@@ -179,3 +179,29 @@ class Meal(Base):
     @property
     def label(self) -> str:
         return self.recipe.title if self.recipe else self.text
+
+
+# What a show on the watch list can be.
+KINDS = {"series": "Series", "movie": "Movie"}
+
+
+class Show(Base):
+    """A series or movie someone would like to watch next.
+
+    In the pool while picked_at is empty; the one picked (at most one) has picked_at set; once
+    watched it gets watched_at and lives on as history.
+    """
+
+    __tablename__ = "show"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[str] = mapped_column(String(10), default="series", server_default="series")
+    added_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    picked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    picked_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"))
+    watched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+
+    added_by: Mapped[User] = relationship(foreign_keys=[added_by_id], lazy="joined")
+    picked_by: Mapped[User | None] = relationship(foreign_keys=[picked_by_id], lazy="joined")

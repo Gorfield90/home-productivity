@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .db import Database
 from .migrate import upgrade
-from .models import SLOTS, Category, Item, Meal, Recipe, User
-from . import meals, recipes, shopping, todos
+from .models import KINDS, SLOTS, Category, Item, Meal, Recipe, Show, User
+from . import meals, recipes, shopping, todos, watch
 
 BASE_DIR = Path(__file__).parent
 
@@ -58,7 +58,8 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     app.state.settings = settings
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     templates = Jinja2Templates(directory=BASE_DIR / "templates")
-    templates.env.globals.update(version=settings.version, due_label=lambda d: todos.due_label(d, today()), SLOTS=SLOTS)
+    templates.env.globals.update(version=settings.version, due_label=lambda d: todos.due_label(d, today()), SLOTS=SLOTS,
+                                 KINDS=KINDS)
 
     def get_session():
         yield from db.session()
@@ -135,7 +136,6 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
 
     @app.get("/")
     def home(user: UserDep):
-        # The shopping list is the only feature so far; to-dos, recipes and meals will join it here.
         return back("/shopping")
 
     # ---- shopping list ----
@@ -509,6 +509,80 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
         added = meals.week_to_shopping(session, user, start, ids)
         session.commit()
         return back(f"/meals/shopping?week={start.isoformat()}&added={added}")
+
+    # ---- watch list ----
+
+    def own_show(session: Session, show_id: int) -> Show:
+        show = session.get(Show, show_id)
+        if show is None:
+            raise HTTPException(404)
+        return show
+
+    def watch_context(session: Session, **extra) -> dict:
+        waiting = watch.pool(session)
+        return {"up_next": watch.current(session), "people": watch.by_person(waiting, users(session)), "waiting": len(waiting),
+                "watched": watch.watched(session), "colors": user_colors(session), "rev": shopping.revision(session),
+                **extra}
+
+    def watch_or_back(request: Request, session: Session, user: User, error: str = "", added: str = ""):
+        if wants_fragment(request):
+            return render(request, "_watch.html", user, status_code=422 if error else 200,
+                          **watch_context(session, error=error, added=added))
+        if error:
+            return render(request, "watch.html", user, status_code=422, **watch_context(session, error=error))
+        return back("/watch")
+
+    @app.get("/watch")
+    def watch_page(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "watch.html", user, **watch_context(session))
+
+    @app.get("/watch/fragment")
+    def watch_fragment(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "_watch.html", user, **watch_context(session))
+
+    @app.post("/watch/shows")
+    async def add_show(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        try:
+            show = watch.add_show(session, user, str(form.get("title", "")), str(form.get("kind", "")))
+        except shopping.FormError as e:
+            return watch_or_back(request, session, user, error=str(e))
+        session.commit()
+        return watch_or_back(request, session, user, added=f"Added {show.title}")
+
+    @app.post("/watch/shows/{show_id}/delete")
+    def delete_show(show_id: int, request: Request, session: SessionDep, user: UserDep):
+        session.delete(own_show(session, show_id))
+        shopping.bump(session)
+        session.commit()
+        return watch_or_back(request, session, user)
+
+    @app.post("/watch/pick")
+    async def pick_show(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        kind = str(form.get("kind", ""))
+        try:
+            watch.pick(session, user, kind if kind in KINDS else "")
+        except shopping.FormError as e:
+            return watch_or_back(request, session, user, error=str(e))
+        session.commit()
+        return watch_or_back(request, session, user)
+
+    @app.post("/watch/shows/{show_id}/watched")
+    def show_watched(show_id: int, request: Request, session: SessionDep, user: UserDep):
+        show = own_show(session, show_id)
+        if show.picked_at is not None and show.watched_at is None:
+            watch.mark_watched(session, show)
+            session.commit()
+        return watch_or_back(request, session, user)
+
+    @app.post("/watch/shows/{show_id}/put-back")
+    def put_back_show(show_id: int, request: Request, session: SessionDep, user: UserDep):
+        show = own_show(session, show_id)
+        if show.picked_at is not None and show.watched_at is None:
+            watch.put_back(session, show)
+            session.commit()
+        return watch_or_back(request, session, user)
 
     # ---- categories ----
 

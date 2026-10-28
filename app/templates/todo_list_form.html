@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
-{% block title %}{{ tl.name if tl else 'New list' }} · Home{% endblock %}
 {% block content %}
 <div class="page-head">
   <div><a href="{{ '/todos/%d' % tl.id if tl else '/todos' }}" class="back">{{ icon('left') }} {{ tl.name if tl else 'To-dos' }}</a>

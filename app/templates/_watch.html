@@ -1,0 +1,58 @@
+{% from "_ui.html" import icon, avatar %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% elif added %}<p class="flash">{{ added }}</p>{% endif %}
+
+{% if up_next %}
+<section class="card up-next">
+  <small class="eyebrow">Up next</small>
+  <h2 class="pick-title">{{ up_next.title }} <span class="kind">{{ KINDS.get(up_next.kind, up_next.kind) }}</span></h2>
+  <p class="muted pick-meta">{{ avatar(up_next.added_by, colors) }} {{ up_next.added_by.display_name }}'s idea{% if up_next.picked_by %}, picked by {{ up_next.picked_by.display_name }}{% endif %}</p>
+  <div class="form-actions">
+    <form method="post" action="/watch/shows/{{ up_next.id }}/watched" data-live><button type="submit" class="small-btn">{{ icon('check') }} We watched it</button></form>
+    <form method="post" action="/watch/pick" data-live><input type="hidden" name="kind" value="{{ up_next.kind }}">
+      <button type="submit" class="small-btn secondary"{% if not waiting %} disabled{% endif %}>{{ icon('shuffle') }} Pick another {{ KINDS.get(up_next.kind, '')|lower }}</button></form>
+    <form method="post" action="/watch/shows/{{ up_next.id }}/put-back" data-live><button type="submit" class="link">Put it back</button></form>
+  </div>
+</section>
+{% elif waiting %}
+<form class="card pick-form" method="post" action="/watch/pick" data-live>
+  <h2>What's next?</h2>
+  <div class="seg" role="radiogroup" aria-label="What to pick">
+    <label><input type="radio" name="kind" value="" checked> Anything</label>
+    {% for k, label in KINDS.items() %}<label><input type="radio" name="kind" value="{{ k }}"> {{ label }}</label>{% endfor %}
+  </div>
+  <button type="submit" class="pick-btn">{{ icon('shuffle') }} Pick for us</button>
+</form>
+{% else %}
+<p class="card empty">Nothing to pick from yet. Each of you add a few series or movies above.</p>
+{% endif %}
+
+<section class="card">
+  {% for person, shows in people %}
+  <h2 class="aisle">{{ avatar(person, colors) }} {{ person.display_name }}'s ideas <small class="muted">{{ shows|length }}</small></h2>
+  <ul class="items shows">
+    {% for s in shows %}
+    <li class="item"><span class="what"><span class="name">{{ s.title }}</span> <span class="kind">{{ KINDS.get(s.kind, s.kind) }}</span></span>
+      <form method="post" action="/watch/shows/{{ s.id }}/delete" data-live class="forget">
+        <button type="submit" aria-label="Remove {{ s.title }}" title="Remove">{{ icon('x') }}</button></form></li>
+    {% else %}
+    <li class="item muted none">Nothing yet.</li>
+    {% endfor %}
+  </ul>
+  {% endfor %}
+</section>
+
+{% if watched %}
+<details class="card ticked">
+  <summary><h2>Watched <small class="muted">{{ watched|length }}</small></h2></summary>
+  <ul class="items shows">
+    {% for s in watched %}
+    <li class="item done"><span class="what"><span class="name">{{ s.title }}</span> <span class="kind">{{ KINDS.get(s.kind, s.kind) }}</span>
+      <small class="note-line">{{ s.added_by.display_name }}'s idea · watched {{ s.watched_at.strftime('%-d %b %Y') }}</small></span>
+      <form method="post" action="/watch/shows/{{ s.id }}/delete" data-live class="forget">
+        <button type="submit" aria-label="Remove {{ s.title }} from history" title="Remove">{{ icon('x') }}</button></form></li>
+    {% endfor %}
+  </ul>
+</details>
+{% endif %}
+</div>

@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
-{% block title %}{{ todo.title }} · Home{% endblock %}
 {% block content %}
 <div class="page-head">
   <div><a href="/todos/{{ todo.list_id }}" class="back">{{ icon('left') }} {{ todo.todo_list.name }}</a><h1>{{ todo.title }}</h1>
