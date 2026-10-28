@@ -34,9 +34,9 @@
   <aside class="side" aria-label="Main">
     <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
     <a class="nav" href="/shopping" {{ current('/shopping') }}>{{ icon('cart') }} Shopping list</a>
-    <a class="nav" href="/todos" {{ current('/todos') }}>{{ icon('todo') }} To-dos</a>
     <a class="nav" href="/recipes" {{ current('/recipes') }}>{{ icon('book') }} Recipes</a>
     <a class="nav" href="/meals" {{ current('/meals') }}>{{ icon('meals') }} Meal plan</a>
+    <a class="nav" href="/todos" {{ current('/todos') }}>{{ icon('todo') }} To-dos</a>
     <a class="nav" href="/watch" {{ current('/watch') }}>{{ icon('tv') }} Watch next</a>
     <div class="me"><span class="av sm">{{ user.display_name[:1]|upper }}</span> {{ user.display_name }}
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode" title="Light / dark">{{ icon('theme') }}</button></div>
@@ -54,9 +54,9 @@
 
   <nav class="tabbar" aria-label="Main">
     <a href="/shopping" {{ current('/shopping') }}>{{ icon('cart') }}<span>Shopping</span></a>
-    <a href="/todos" {{ current('/todos') }}>{{ icon('todo') }}<span>To-dos</span></a>
     <a href="/recipes" {{ current('/recipes') }}>{{ icon('book') }}<span>Recipes</span></a>
     <a href="/meals" {{ current('/meals') }}>{{ icon('meals') }}<span>Meals</span></a>
+    <a href="/todos" {{ current('/todos') }}>{{ icon('todo') }}<span>To-dos</span></a>
     <a href="/watch" {{ current('/watch') }}>{{ icon('tv') }}<span>Watch</span></a>
   </nav>
 </div>
