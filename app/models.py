@@ -2,7 +2,7 @@
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -205,3 +205,60 @@ class Show(Base):
 
     added_by: Mapped[User] = relationship(foreign_keys=[added_by_id], lazy="joined")
     picked_by: Mapped[User | None] = relationship(foreign_keys=[picked_by_id], lazy="joined")
+
+
+class Plant(Base):
+    """A house plant. With every_days set the app works out when it needs water next."""
+
+    __tablename__ = "plant"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60))
+    spot: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    every_days: Mapped[int | None] = mapped_column(Integer)
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    created_by: Mapped[User] = relationship(lazy="joined")
+    waterings: Mapped[list["Watering"]] = relationship(
+        order_by="(Watering.day.desc(), Watering.id.desc())", cascade="all, delete-orphan", lazy="selectin")
+    photos: Mapped[list["Photo"]] = relationship(
+        order_by="Photo.id.desc()", cascade="all, delete-orphan", lazy="selectin")
+
+    @property
+    def last_watering(self) -> "Watering | None":
+        return self.waterings[0] if self.waterings else None
+
+
+class Watering(Base):
+    """Someone watered a plant on a day."""
+
+    __tablename__ = "watering"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plant_id: Mapped[int] = mapped_column(ForeignKey("plant.id", ondelete="CASCADE"), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    by: Mapped[User] = relationship(lazy="joined")
+
+
+class Photo(Base):
+    """A photo, shrunk on the phone before upload and kept in the database so the nightly backup has it.
+
+    It belongs to one thing (for now a plant). The image bytes are only loaded when the photo is served.
+    """
+
+    __tablename__ = "photo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    plant_id: Mapped[int | None] = mapped_column(ForeignKey("plant.id", ondelete="CASCADE"), index=True)
+    content_type: Mapped[str] = mapped_column(String(30))
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    thumb: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    added_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    added_by: Mapped[User] = relationship(lazy="joined")

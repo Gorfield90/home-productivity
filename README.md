@@ -1,6 +1,6 @@
 # Home
 
-A small self-hosted family organizer for Pedro and Maguy. It has a **shared shopping list**, **to-do lists**, **recipes**, a **meal planner** and a **watch next** picker.
+A small self-hosted family organizer for Pedro and Maguy. It has a **shared shopping list**, **to-do lists**, **recipes**, a **meal planner**, a **watch next** picker and a **plant watering tracker**.
 
 It runs as one container with a SQLite database and sits behind Traefik + Authentik forwardAuth in the homelab (`Gorfield90/homelab-manual`) at `home-app.pmpm.dedyn.io`, built the same way as `Gorfield90/finance-manager` and `Gorfield90/training-planner`. The look is theirs (Pico, same layout and components) in warm terracotta instead of green.
 
@@ -16,6 +16,7 @@ It runs as one container with a SQLite database and sits behind Traefik + Authen
 - **Recipes.** A shared cookbook: name, serves, minutes, tags, ingredients (one per line, as you'd write them), steps (one per line), notes and a link to the original. Search by name, tag or ingredient, or filter by tag. On a recipe, the ingredients are ticked by default; untick what you have and "Add ticked to shopping list" puts the rest on the list with their quantities ("400 g", "1 tbsp", in English or Portuguese: "2 dentes de alho" → Alho, 2 dentes) and a note saying which recipe they're for. Something already on the list gets the quantities joined ("2 + 2") instead of a second line; "q.b." / "to taste" adds the product without a quantity.
 - **Meal planner.** A week at a time (Monday to Sunday, with previous/next), lunch and dinner for each day, each from a recipe or a few words ("leftovers", "pizza night"). "Shop for this week" lists the ingredients of every recipe planned that week, each recipe once with the meals it's for; untick what you have and the rest goes on the shopping list the same way as from a recipe. Deleting a recipe keeps its name on past plans.
 - **Watch next.** Each of you adds series and movies you'd like to watch, listed per person. "Pick for us" draws one at random (anything, or only a series or only a movie): first a person, with the same chance for each of you however many you added, then one of theirs. The pick shows as Up next on both phones. "We watched it" moves it to Watched, "Pick another" draws again without it, "Put it back" returns it to the list.
+- **Plants.** Each plant has an optional spot and an optional "water every N days". The list puts the ones that need water first (late, then due today), shows who watered each one last and when, and has one Watered button (once per plant per day; tap again to undo). A plant's page shows its next watering day, the history (log an earlier day, remove a mistake) and photos. Photos are shrunk on the phone before upload (about 1600 px, plus a small thumbnail) and stored in the database, so the nightly backup includes them. Plants that need water show as a count in the menu. On phones, Watch next and Plants sit behind the More tab.
 - **Phone first**, with a tab bar on phones, installable to the home screen (manifest + icons), light and dark mode. The browser tab always says "Home".
 
 ## Configuration

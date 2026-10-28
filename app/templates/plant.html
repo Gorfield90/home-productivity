@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, avatar %}
+{% set p = s.plant %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/plants" class="back">{{ icon('left') }} Plants</a><h1>{{ p.name }}</h1>
+    {% if p.spot %}<p>{{ p.spot }}</p>{% endif %}</div>
+  <a class="head-link" href="/plants/{{ p.id }}/edit">{{ icon('edit') }} Edit</a>
+</div>
+
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+
+<section class="card plant-status {{ s.kind }}">
+  <div>
+    {% if s.text %}<span class="due {{ 'today' if s.watered_today else s.kind }}">{{ s.text }}</span>{% endif %}
+    <p class="status-line">{% if s.last %}Watered {{ ago(s.last.day) }} by {{ s.last.by.display_name }}{% else %}Not watered yet{% endif %}</p>
+    <small class="muted">{% if p.every_days %}Every {{ p.every_days }} day{{ '' if p.every_days == 1 else 's' }}{% if s.next_day %}, next on {{ s.next_day.strftime('%a %-d %b') }}{% endif %}{% else %}No fixed schedule{% endif %}{% if gap %} · on average every {{ gap }} day{{ '' if gap == 1 else 's' }} so far{% endif %}</small>
+  </div>
+  {% if s.watered_today %}
+  <form method="post" action="/plants/{{ p.id }}/undo"><button type="submit" class="water-btn done">{{ icon('check') }}<span>Undo</span></button></form>
+  {% else %}
+  <form method="post" action="/plants/{{ p.id }}/water"><button type="submit" class="water-btn">{{ icon('drop') }}<span>Watered</span></button></form>
+  {% endif %}
+</section>
+
+<section class="card">
+  <div class="card-title"><h2>Photos</h2></div>
+  {% if p.photos %}
+  <ul class="photo-grid">
+    {% for ph in p.photos %}
+    <li><a href="/photos/{{ ph.id }}" target="_blank" rel="noopener"><img src="/photos/{{ ph.id }}/thumb" alt="{{ p.name }}, {{ ph.created_at.strftime('%-d %b %Y') }}" loading="lazy"></a>
+      <small class="muted">{{ ph.created_at.strftime('%-d %b %Y') }}</small>
+      <details class="inline-del"><summary aria-label="Delete this photo" title="Delete">{{ icon('x') }}</summary>
+        <form method="post" action="/photos/{{ ph.id }}/delete" class="del-box"><button type="submit" class="small-btn danger">Delete photo</button></form></details></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/plants/{{ p.id }}/photos" enctype="multipart/form-data" class="photo-add" data-photo>
+    <label class="small-btn file-btn">{{ icon('camera') }} <span>Add a photo</span>
+      <input type="file" name="photo" accept="image/*" required></label>
+    <noscript><button type="submit" class="small-btn">Upload</button></noscript>
+    <small class="muted photo-msg" role="status">{% if not p.photos %}Add one to see how it grows. The newest one shows on the list.{% endif %}</small>
+  </form>
+</section>
+
+{% if p.notes %}<section class="card"><h2>Notes</h2><p class="pre">{{ p.notes }}</p></section>{% endif %}
+
+<section class="card">
+  <h2>Watering history</h2>
+  <form method="post" action="/plants/{{ p.id }}/water" class="log-day">
+    <input type="date" name="day" max="{{ today.isoformat() }}" value="{{ yesterday.isoformat() }}" aria-label="Day it was watered" required>
+    <button type="submit" class="small-btn secondary">{{ icon('plus') }} Watered that day</button>
+  </form>
+  {% if history %}
+  <ul class="items shows">
+    {% for w in history %}
+    <li class="item"><span class="what">{{ avatar(w.by, colors) }} <span class="name">{{ w.day.strftime('%a %-d %b' if w.day.year == today.year else '%a %-d %b %Y') }}</span>
+      <small class="muted">{{ w.by.display_name }}</small></span>
+      <form method="post" action="/plants/{{ p.id }}/waterings/{{ w.id }}/delete" class="forget">
+        <button type="submit" aria-label="Remove {{ w.day.isoformat() }}" title="Remove">{{ icon('x') }}</button></form></li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted">Nothing logged yet.</p>{% endif %}
+</section>
+<p class="muted small">Added by {{ p.created_by.display_name }}.</p>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='photo.js') }}?v={{ version }}"></script>{% endblock %}

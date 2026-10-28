@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head"><div><h1>More</h1></div></div>
+<section class="card" aria-label="More pages">
+  <ul class="lists">
+    <li><a href="/plants"><span class="list-ic">{{ icon('leaf') }}</span><span class="list-name">Plants</span>
+      {% if due %}<span class="count">{{ due }} need{{ 's' if due == 1 else '' }} water</span>{% endif %}{{ icon('right') }}</a></li>
+    <li><a href="/watch"><span class="list-ic">{{ icon('tv') }}</span><span class="list-name">Watch next</span>{{ icon('right') }}</a></li>
+  </ul>
+</section>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Plants</h1><p>Tap Watered when you water one. The ones that need water come first.</p></div>
+  <a class="head-link" href="/plants/new">{{ icon('plus') }} New plant</a>
+</div>
+
+<div id="live" data-src="/plants/fragment" aria-live="polite">
+  {% include "_plants.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>{% endblock %}

@@ -1,0 +1,31 @@
+{% from "_ui.html" import icon %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+
+{% if rows %}
+<ul class="plant-list">
+  {% for s in rows %}{% set p = s.plant %}
+  <li class="card plant-row {{ s.kind }}">
+    <a class="plant-pic" href="/plants/{{ p.id }}" tabindex="-1" aria-hidden="true">
+      {%- if p.photos %}<img src="/photos/{{ p.photos[0].id }}/thumb" alt="" loading="lazy">{% else %}{{ icon('leaf') }}{% endif -%}
+    </a>
+    <a class="plant-what" href="/plants/{{ p.id }}">
+      <strong>{{ p.name }}</strong>{% if s.text and not s.watered_today %} <span class="due {{ s.kind }}">{{ s.text }}</span>{% endif %}
+      <small class="note-line">{% if p.spot %}{{ p.spot }} · {% endif %}{% if s.last %}Watered {{ ago(s.last.day) }} by {{ s.last.by.display_name }}{% else %}Not watered yet{% endif %}</small>
+    </a>
+    {% if s.watered_today %}
+    <form method="post" action="/plants/{{ p.id }}/undo" data-live>
+      <input type="hidden" name="back" value="list">
+      <button type="submit" class="water-btn done" aria-label="{{ p.name }} was watered today. Undo" title="Undo">{{ icon('check') }}<span>Undo</span></button></form>
+    {% else %}
+    <form method="post" action="/plants/{{ p.id }}/water" data-live>
+      <input type="hidden" name="back" value="list">
+      <button type="submit" class="water-btn" aria-label="Watered {{ p.name }}">{{ icon('drop') }}<span>Watered</span></button></form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="card empty">No plants yet. <a href="/plants/new">Add the first one</a>, and say how often it needs water if you know.</p>
+{% endif %}
+</div>

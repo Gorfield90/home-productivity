@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .db import Database
 from .migrate import upgrade
-from .models import KINDS, SLOTS, Category, Item, Meal, Recipe, Show, User
-from . import meals, recipes, shopping, todos, watch
+from .models import KINDS, SLOTS, Category, Item, Meal, Plant, Recipe, Show, User, Watering
+from . import meals, photos, plants, recipes, shopping, todos, watch
 
 BASE_DIR = Path(__file__).parent
 
@@ -63,6 +63,13 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
 
     def get_session():
         yield from db.session()
+
+    def plants_due() -> int:
+        """For the badge on Plants and More: how many plants need water today."""
+        with db.sessionmaker() as s:
+            return plants.due_count(s, today())
+
+    templates.env.globals["plants_due"] = plants_due
 
     SessionDep = Annotated[Session, Depends(get_session)]
 
@@ -583,6 +590,178 @@ def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
             watch.put_back(session, show)
             session.commit()
         return watch_or_back(request, session, user)
+
+    # ---- plants ----
+
+    def own_plant(session: Session, plant_id: int) -> Plant:
+        plant = session.get(Plant, plant_id)
+        if plant is None:
+            raise HTTPException(404)
+        return plant
+
+    def plants_context(session: Session, **extra) -> dict:
+        return {"rows": plants.overview(session, today()), "ago": lambda d: plants.ago(d, today()),
+                "rev": shopping.revision(session), **extra}
+
+    def plants_or_back(request: Request, session: Session, user: User, plant: Plant, to_list: bool, error: str = ""):
+        """After watering: the list fragment for the page's script; otherwise back to the list or the plant's page,
+        whichever the form was on."""
+        if wants_fragment(request):
+            return render(request, "_plants.html", user, status_code=422 if error else 200,
+                          **plants_context(session, error=error))
+        if to_list:
+            if error:
+                return render(request, "plants.html", user, status_code=422, **plants_context(session, error=error))
+            return back("/plants")
+        if error:
+            return plant_page_response(request, session, user, plant, error=error, status_code=422)
+        return back(f"/plants/{plant.id}")
+
+    def plant_page_response(request: Request, session: Session, user: User, plant: Plant, status_code: int = 200, **extra):
+        return render(request, "plant.html", user, status_code=status_code, s=plants.status(plant, today()),
+                      history=plants.history(plant), gap=plants.average_gap(plant), colors=user_colors(session),
+                      today=today(), yesterday=today() - timedelta(days=1), ago=lambda d: plants.ago(d, today()),
+                      **extra)
+
+    @app.get("/more")
+    def more_page(request: Request, user: UserDep):
+        return render(request, "more.html", user)
+
+    @app.get("/plants")
+    def plants_page(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "plants.html", user, **plants_context(session))
+
+    @app.get("/plants/fragment")
+    def plants_fragment(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "_plants.html", user, **plants_context(session))
+
+    @app.get("/plants/new")
+    def new_plant_form(request: Request, user: UserDep):
+        return render(request, "plant_form.html", user, plant=None, form={})
+
+    @app.post("/plants")
+    async def add_plant(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        plant = Plant(created_by=user)
+        try:
+            plants.apply_form(plant, form)
+        except shopping.FormError as e:
+            return render(request, "plant_form.html", user, status_code=422, plant=None, error=str(e), form=dict(form))
+        session.add(plant)
+        shopping.bump(session)
+        session.commit()
+        return back(f"/plants/{plant.id}")
+
+    @app.get("/plants/{plant_id}")
+    def plant_page(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        return plant_page_response(request, session, user, own_plant(session, plant_id))
+
+    @app.get("/plants/{plant_id}/edit")
+    def edit_plant_form(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        return render(request, "plant_form.html", user, plant=plant, form=plants.form_values(plant))
+
+    @app.post("/plants/{plant_id}/edit")
+    async def edit_plant(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        form = await request.form()
+        try:
+            plants.apply_form(plant, form)
+        except shopping.FormError as e:
+            session.rollback()
+            return render(request, "plant_form.html", user, status_code=422, plant=own_plant(session, plant_id),
+                          error=str(e), form=dict(form))
+        shopping.bump(session)
+        session.commit()
+        return back(f"/plants/{plant.id}")
+
+    @app.post("/plants/{plant_id}/delete")
+    def delete_plant(plant_id: int, session: SessionDep, user: UserDep):
+        session.delete(own_plant(session, plant_id))
+        shopping.bump(session)
+        session.commit()
+        return back("/plants")
+
+    @app.post("/plants/{plant_id}/water")
+    async def water_plant(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        form = await request.form()
+        to_list = form.get("back") == "list"
+        raw = str(form.get("day", "") or "")
+        try:
+            day = date.fromisoformat(raw) if raw else today()
+        except ValueError:
+            return plants_or_back(request, session, user, plant, to_list, error="That isn't a date.")
+        try:
+            plants.water(session, plant, user, day, today())
+        except shopping.FormError as e:
+            return plants_or_back(request, session, user, plant, to_list, error=str(e))
+        session.commit()
+        return plants_or_back(request, session, user, plant, to_list)
+
+    @app.post("/plants/{plant_id}/undo")
+    async def undo_watering(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        form = await request.form()
+        plants.undo_today(session, plant, today())
+        session.commit()
+        return plants_or_back(request, session, user, plant, form.get("back") == "list")
+
+    @app.post("/plants/{plant_id}/waterings/{watering_id}/delete")
+    def delete_watering(plant_id: int, watering_id: int, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        w = session.get(Watering, watering_id)
+        if w is None or w.plant_id != plant.id:
+            raise HTTPException(404)
+        plant.waterings.remove(w)
+        shopping.bump(session)
+        session.commit()
+        return back(f"/plants/{plant.id}")
+
+    @app.post("/plants/{plant_id}/photos")
+    async def add_plant_photo(plant_id: int, request: Request, session: SessionDep, user: UserDep):
+        plant = own_plant(session, plant_id)
+        form = await request.form(max_part_size=photos.UPLOAD_LIMIT)
+        try:
+            photo = photos.make(user, await photos.read_upload(form.get("photo")),
+                                await photos.read_upload(form.get("thumb")), plant_id=plant.id)
+        except shopping.FormError as e:
+            return plant_page_response(request, session, user, plant, error=str(e), status_code=422)
+        session.add(photo)
+        shopping.bump(session)
+        session.commit()
+        return back(f"/plants/{plant.id}")
+
+    # ---- photos ----
+
+    def own_photo(session: Session, photo_id: int):
+        photo = photos.load(session, photo_id)
+        if photo is None:
+            raise HTTPException(404)
+        return photo
+
+    # A photo never changes once stored (a new one gets a new id), so browsers may keep it.
+    PHOTO_CACHE = {"Cache-Control": "private, max-age=31536000, immutable"}
+
+    @app.get("/photos/{photo_id}")
+    def photo_file(photo_id: int, session: SessionDep, user: UserDep):
+        photo = own_photo(session, photo_id)
+        return Response(photo.data, media_type=photo.content_type, headers=PHOTO_CACHE)
+
+    @app.get("/photos/{photo_id}/thumb")
+    def photo_thumb(photo_id: int, session: SessionDep, user: UserDep):
+        photo = own_photo(session, photo_id)
+        data = photo.thumb or photo.data
+        return Response(data, media_type=photos.sniff(data) or photo.content_type, headers=PHOTO_CACHE)
+
+    @app.post("/photos/{photo_id}/delete")
+    def delete_photo(photo_id: int, session: SessionDep, user: UserDep):
+        photo = own_photo(session, photo_id)
+        where = f"/plants/{photo.plant_id}" if photo.plant_id else "/"
+        session.delete(photo)
+        shopping.bump(session)
+        session.commit()
+        return back(where)
 
     # ---- categories ----
 
