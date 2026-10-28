@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Shop for the week · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/meals?week={{ start.isoformat() }}" class="back">{{ icon('left') }} Meal plan</a><h1>Shop for the week</h1>
+    <p>Ingredients of the recipes planned from {{ start.day }} {{ start.strftime('%b') }}. Untick what you already have.</p></div>
+</div>
+{% if added is not none %}<p class="flash" role="status">{% if added %}{{ added }} ingredient{{ '' if added == 1 else 's' }} added to the <a href="/shopping">shopping list</a>.{% else %}Nothing was ticked, so nothing was added.{% endif %}</p>{% endif %}
+{% if planned %}
+<form method="post" action="/meals/shopping" class="ingredients">
+  <input type="hidden" name="week" value="{{ start.isoformat() }}">
+  {% for recipe, planned_meals in planned %}
+  <section class="card">
+    <h2><a href="/recipes/{{ recipe.id }}">{{ recipe.title }}</a>
+      <small class="muted">{% for m in planned_meals %}{{ m.day.strftime('%a') }} {{ SLOTS[m.slot]|lower }}{{ ', ' if not loop.last }}{% endfor %}</small></h2>
+    {% if recipe.ingredients %}
+    <ul>{% for ing in recipe.ingredients %}<li><label><input type="checkbox" name="ingredient" value="{{ ing.id }}" checked> {{ ing.line }}</label></li>{% endfor %}</ul>
+    {% else %}<p class="muted">This recipe has no ingredients yet.</p>{% endif %}
+  </section>
+  {% endfor %}
+  <div class="sticky-actions"><button type="submit">{{ icon('cart') }} Add ticked to shopping list</button></div>
+</form>
+{% else %}
+<p class="card empty">No recipes are planned this week. Plain-text meals ("leftovers") don't have ingredients to buy.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,36 @@
+{% from "_ui.html" import icon, avatar %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+<div class="week">
+  {% for d in days %}
+  <section class="card day-card{% if d.day == today %} today{% elif d.day < today %} past{% endif %}">
+    <h2>{{ d.day.strftime('%A') }} <small class="muted">{{ d.day.day }} {{ d.day.strftime('%b') }}</small>{% if d.day == today %} <span class="due today">Today</span>{% endif %}</h2>
+    {% for slot, label in SLOTS.items() %}
+    <div class="slot">
+      <span class="slot-name">{{ label }}</span>
+      <ul class="meals">
+        {% for m in d.slots[slot] %}
+        <li>{% if m.recipe %}<a href="/recipes/{{ m.recipe.id }}">{{ m.recipe.title }}</a>{% else %}<span>{{ m.text }}</span>{% endif %}
+          <form method="post" action="/meals/{{ m.id }}/delete" data-live class="forget">
+            <button type="submit" aria-label="Remove {{ m.label }} from {{ d.day.strftime('%A') }} {{ label|lower }}" title="Remove">{{ icon('x') }}</button></form></li>
+        {% else %}<li class="muted none">–</li>{% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+    <details class="add-meal">
+      <summary>{{ icon('plus') }} Add</summary>
+      <form method="post" action="/meals" data-live>
+        <input type="hidden" name="day" value="{{ d.day.isoformat() }}">
+        <div class="seg">{% for slot, label in SLOTS.items() %}<label><input type="radio" name="slot" value="{{ slot }}" {% if loop.last %}checked{% endif %}> {{ label }}</label>{% endfor %}</div>
+        <select name="recipe_id" aria-label="Recipe">
+          <option value="">A recipe…</option>
+          {% for r in recipes %}<option value="{{ r.id }}">{{ r.title }}</option>{% endfor %}
+        </select>
+        <input name="text" placeholder="…or type it, e.g. leftovers" maxlength="120" aria-label="Or type what you'll eat" autocomplete="off">
+        <button type="submit" class="small-btn">Add</button>
+      </form>
+    </details>
+  </section>
+  {% endfor %}
+</div>
+</div>

@@ -1,6 +1,6 @@
 # Home
 
-A small self-hosted family organizer for Pedro and Maguy. It starts with a **shared shopping list**; to-do lists, recipes and a meal planner come next, in that order.
+A small self-hosted family organizer for Pedro and Maguy. It has a **shared shopping list**, **to-do lists**, **recipes** and a **meal planner**.
 
 It runs as one container with a SQLite database and sits behind Traefik + Authentik forwardAuth in the homelab (`Gorfield90/homelab-manual`) at `home-app.pmpm.dedyn.io`, built the same way as `Gorfield90/finance-manager` and `Gorfield90/training-planner`. The look is theirs (Pico, same layout and components) in warm terracotta instead of green.
 
@@ -11,8 +11,11 @@ It runs as one container with a SQLite database and sits behind Traefik + Authen
 - **Grouped by aisle**, in the order you walk through the shop. A new household starts with nine aisles (Fruit & veg, Bakery, Meat & fish, …), which can be renamed, reordered, added to or deleted on the Aisles page. A product gets the aisle it had last time; the first time, a word list (English and Portuguese, `AISLE_WORDS` in `app/shopping.py`) makes a guess, else it goes under Other. The aisle can also be picked when adding.
 - **Tick off in the shop.** Tapping an item puts it in the trolley (struck through, with who ticked it); tapping again puts it back. "Done shopping" takes the ticked items off the list.
 - **Recently bought.** What you bought before shows as one-tap chips to put it back on the list, newest first, leaving out what is on the list already. The × drops a product from the suggestions.
-- **Live.** An open list checks every 4 seconds (only while the page is visible) whether anything changed and refreshes in place, so two phones in the shop stay in step. Taps are sent in the background, so the page doesn't reload or jump; without JavaScript every form still works as a normal post.
-- **Phone first**, installable to the home screen (manifest + icons), light and dark mode.
+- **Live.** An open list (shopping or to-do) checks every 4 seconds (only while the page is visible) whether anything changed and refreshes in place, so two phones in the shop stay in step. Taps are sent in the background, so the page doesn't reload or jump; without JavaScript every form still works as a normal post.
+- **To-do lists.** Any number of lists, each shared by both of you or personal (only its creator sees it, nowhere else in the app either). A new household starts with a shared "Home" list. Tasks take an optional due date and, on shared lists, who it is for. Open tasks are sorted soonest first, undated ones last; due dates show as Today, Tomorrow, a weekday, or in red when late. Ticking a task moves it to Done (with who did it), where it can be unticked or cleared. The To-dos page shows every list with its open count and a **Coming up** list of overdue tasks and those due in the next 7 days.
+- **Recipes.** A shared cookbook: name, serves, minutes, tags, ingredients (one per line, as you'd write them), steps (one per line), notes and a link to the original. Search by name, tag or ingredient, or filter by tag. On a recipe, the ingredients are ticked by default; untick what you have and "Add ticked to shopping list" puts the rest on the list with their quantities ("400 g", "1 tbsp", in English or Portuguese: "2 dentes de alho" → Alho, 2 dentes) and a note saying which recipe they're for. Something already on the list gets the quantities joined ("2 + 2") instead of a second line; "q.b." / "to taste" adds the product without a quantity.
+- **Meal planner.** A week at a time (Monday to Sunday, with previous/next), lunch and dinner for each day, each from a recipe or a few words ("leftovers", "pizza night"). "Shop for this week" lists the ingredients of every recipe planned that week, each recipe once with the meals it's for; untick what you have and the rest goes on the shopping list the same way as from a recipe. Deleting a recipe keeps its name on past plans.
+- **Phone first**, with a tab bar on phones, installable to the home screen (manifest + icons), light and dark mode.
 
 ## Configuration
 

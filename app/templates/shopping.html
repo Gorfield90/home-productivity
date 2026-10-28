@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-head">
   <div><h1>Shopping list</h1><p>Shared with everyone at home. Tap an item to put it in the trolley.</p></div>
+  <a class="head-link" href="/shopping/categories">{{ icon('aisles') }} Aisles</a>
 </div>
 
 <form class="card add-form" method="post" action="/shopping/items" data-live data-add>
@@ -16,8 +17,8 @@
   <button type="submit" aria-label="Add">{{ icon('plus') }}<span class="wide-only">Add</span></button>
 </form>
 
-<div id="list" aria-live="polite">
+<div id="live" data-src="/shopping/list" aria-live="polite">
   {% include "_shopping_list.html" %}
 </div>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', path='shopping.js') }}?v={{ version }}"></script>{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>{% endblock %}

@@ -6,7 +6,7 @@ back, so the page updates in place and stays where it was.
 """
 
 from contextlib import asynccontextmanager
-from datetime import timezone
+from datetime import date, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -20,8 +20,8 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .db import Database
 from .migrate import upgrade
-from .models import Category, Item, User
-from . import shopping
+from .models import SLOTS, Category, Item, Meal, Recipe, User
+from . import meals, recipes, shopping, todos
 
 BASE_DIR = Path(__file__).parent
 
@@ -31,6 +31,7 @@ def ensure_seed_data(session: Session, settings: Settings) -> None:
         if not session.scalar(select(User).where(User.username == username)):
             session.add(User(username=username, display_name=display))
     shopping.ensure_categories(session)
+    todos.ensure_lists(session)
     session.commit()
 
 
@@ -41,7 +42,7 @@ def _int_or_none(value) -> int | None:
         return None
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Settings | None = None, today=date.today) -> FastAPI:
     settings = settings or get_settings()
     db = Database(settings.database_url)
 
@@ -57,7 +58,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
     templates = Jinja2Templates(directory=BASE_DIR / "templates")
-    templates.env.globals.update(version=settings.version)
+    templates.env.globals.update(version=settings.version, due_label=lambda d: todos.due_label(d, today()), SLOTS=SLOTS)
 
     def get_session():
         yield from db.session()
@@ -147,9 +148,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def shopping_fragment(request: Request, session: SessionDep, user: UserDep):
         return render(request, "_shopping_list.html", user, **list_context(session))
 
-    @app.get("/shopping/rev")
-    def shopping_rev(session: SessionDep, user: UserDep):
-        """Polled by open pages: when the number changes, someone changed the list."""
+    @app.get("/rev")
+    def rev(session: SessionDep, user: UserDep):
+        """Polled by open pages: when the number changes, someone changed something."""
         return {"rev": shopping.revision(session)}
 
     @app.post("/shopping/items")
@@ -215,6 +216,299 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         shopping.bump(session)
         session.commit()
         return list_or_back(request, session, user)
+
+    # ---- to-do lists ----
+
+    def users(session: Session) -> list[User]:
+        return list(session.scalars(select(User).order_by(User.id)))
+
+    def own_list(session: Session, user: User, list_id: int):
+        tl = todos.get_list(session, user, list_id)
+        if tl is None:
+            raise HTTPException(404)
+        return tl
+
+    def own_todo(session: Session, user: User, todo_id: int):
+        todo = todos.get_todo(session, user, todo_id)
+        if todo is None:
+            raise HTTPException(404)
+        return todo
+
+    def todo_context(session: Session, user: User, tl, **extra) -> dict:
+        done, done_total = todos.done_todos(session, tl)
+        return {"tl": tl, "open": todos.open_todos(session, tl), "done": done, "done_total": done_total,
+                "users": users(session), "colors": user_colors(session), "rev": shopping.revision(session),
+                **extra}
+
+    def todo_list_or_back(request: Request, session: Session, user: User, tl, error: str = ""):
+        if wants_fragment(request):
+            return render(request, "_todo_list.html", user, status_code=422 if error else 200,
+                          **todo_context(session, user, tl, error=error))
+        if error:
+            return render(request, "todo_list.html", user, status_code=422, **todo_context(session, user, tl, error=error))
+        return back(f"/todos/{tl.id}")
+
+    def overview_context(session: Session, user: User) -> dict:
+        return {"lists": todos.lists(session, user), "counts": todos.open_counts(session, user),
+                "soon": todos.coming_up(session, user, today()), "colors": user_colors(session),
+                "rev": shopping.revision(session)}
+
+    @app.get("/todos")
+    def todos_page(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "todos.html", user, **overview_context(session, user))
+
+    @app.get("/todos/fragment")
+    def todos_fragment(request: Request, session: SessionDep, user: UserDep):
+        return render(request, "_todos_overview.html", user, **overview_context(session, user))
+
+    @app.get("/todos/new")
+    def new_list_form(request: Request, user: UserDep):
+        return render(request, "todo_list_form.html", user, tl=None, form={})
+
+    @app.post("/todos")
+    async def add_list(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        try:
+            tl = todos.add_list(session, user, str(form.get("name", "")), str(form.get("icon", "")),
+                                personal=form.get("visibility") == "personal")
+        except shopping.FormError as e:
+            return render(request, "todo_list_form.html", user, status_code=422, tl=None, error=str(e), form=dict(form))
+        session.commit()
+        return back(f"/todos/{tl.id}")
+
+    @app.get("/todos/{list_id}")
+    def todo_list_page(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        return render(request, "todo_list.html", user, **todo_context(session, user, tl))
+
+    @app.get("/todos/{list_id}/fragment")
+    def todo_list_fragment(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        return render(request, "_todo_list.html", user, **todo_context(session, user, tl))
+
+    @app.post("/todos/{list_id}/items")
+    async def add_todo(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        form = await request.form()
+        try:
+            todos.add_todo(session, user, tl, str(form.get("title", "")), str(form.get("due", "")),
+                           form.get("assignee_id"))
+        except shopping.FormError as e:
+            return todo_list_or_back(request, session, user, tl, error=str(e))
+        session.commit()
+        return todo_list_or_back(request, session, user, tl)
+
+    @app.post("/todos/{list_id}/clear")
+    def clear_done(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        todos.clear_done(session, tl)
+        session.commit()
+        return todo_list_or_back(request, session, user, tl)
+
+    @app.get("/todos/{list_id}/edit")
+    def edit_list_form(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        return render(request, "todo_list_form.html", user, tl=tl,
+                      form={"name": tl.name, "icon": tl.icon, "visibility": "shared" if tl.shared else "personal"})
+
+    @app.post("/todos/{list_id}/edit")
+    async def edit_list(list_id: int, request: Request, session: SessionDep, user: UserDep):
+        tl = own_list(session, user, list_id)
+        form = await request.form()
+        try:
+            tl.name, tl.icon = todos.clean_list(str(form.get("name", "")), str(form.get("icon", "")))
+        except shopping.FormError as e:
+            session.rollback()
+            return render(request, "todo_list_form.html", user, status_code=422, tl=tl, error=str(e), form=dict(form))
+        todos.set_personal(session, user, tl, form.get("visibility") == "personal")
+        shopping.bump(session)
+        session.commit()
+        return back(f"/todos/{tl.id}")
+
+    @app.post("/todos/{list_id}/delete")
+    def delete_list(list_id: int, session: SessionDep, user: UserDep):
+        session.delete(own_list(session, user, list_id))
+        shopping.bump(session)
+        session.commit()
+        return back("/todos")
+
+    @app.post("/todos/items/{todo_id}/toggle")
+    def toggle_todo(todo_id: int, request: Request, session: SessionDep, user: UserDep):
+        todo = own_todo(session, user, todo_id)
+        todos.toggle(session, user, todo)
+        session.commit()
+        if request.headers.get("X-From") == "overview" and wants_fragment(request):
+            return render(request, "_todos_overview.html", user, **overview_context(session, user))
+        return todo_list_or_back(request, session, user, todo.todo_list)
+
+    @app.get("/todos/items/{todo_id}")
+    def edit_todo_form(todo_id: int, request: Request, session: SessionDep, user: UserDep):
+        todo = own_todo(session, user, todo_id)
+        return render(request, "todo_form.html", user, todo=todo, lists=todos.lists(session, user), users=users(session),
+                      form={"title": todo.title, "note": todo.note, "due": todo.due.isoformat() if todo.due else "",
+                            "assignee_id": todo.assignee_id, "list_id": todo.list_id})
+
+    @app.post("/todos/items/{todo_id}")
+    async def edit_todo(todo_id: int, request: Request, session: SessionDep, user: UserDep):
+        todo = own_todo(session, user, todo_id)
+        form = await request.form()
+        target = todos.get_list(session, user, _int_or_none(form.get("list_id")) or todo.list_id) or todo.todo_list
+        try:
+            title = todos.clean_title(str(form.get("title", "")))
+            due = todos.parse_due(str(form.get("due", "")))
+        except shopping.FormError as e:
+            return render(request, "todo_form.html", user, status_code=422, todo=todo, error=str(e),
+                          lists=todos.lists(session, user), users=users(session), form=dict(form))
+        todo.title, todo.due = title, due
+        todo.note = str(form.get("note", "")).strip()[:1000]
+        todo.list_id, todo.todo_list = target.id, target
+        todo.assignee_id = todos.pick_assignee(session, target, form.get("assignee_id"))
+        shopping.bump(session)
+        session.commit()
+        return back(f"/todos/{target.id}")
+
+    @app.post("/todos/items/{todo_id}/delete")
+    def delete_todo(todo_id: int, request: Request, session: SessionDep, user: UserDep):
+        todo = own_todo(session, user, todo_id)
+        tl = todo.todo_list
+        session.delete(todo)
+        shopping.bump(session)
+        session.commit()
+        return todo_list_or_back(request, session, user, tl)
+
+    # ---- recipes ----
+
+    def own_recipe(session: Session, recipe_id: int) -> Recipe:
+        recipe = session.get(Recipe, recipe_id)
+        if recipe is None:
+            raise HTTPException(404)
+        return recipe
+
+    @app.get("/recipes")
+    def recipes_page(request: Request, session: SessionDep, user: UserDep, q: str = "", tag: str = ""):
+        return render(request, "recipes.html", user, recipes=recipes.search(session, q, tag),
+                      tags=recipes.all_tags(session), q=q, tag=tag)
+
+    @app.get("/recipes/new")
+    def new_recipe_form(request: Request, user: UserDep):
+        return render(request, "recipe_form.html", user, recipe=None, form={})
+
+    @app.post("/recipes")
+    async def add_recipe(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        recipe = Recipe(created_by=user)
+        try:
+            recipes.apply_form(recipe, form)
+        except shopping.FormError as e:
+            return render(request, "recipe_form.html", user, status_code=422, recipe=None, error=str(e), form=dict(form))
+        session.add(recipe)
+        shopping.bump(session)
+        session.commit()
+        return back(f"/recipes/{recipe.id}")
+
+    @app.get("/recipes/{recipe_id}")
+    def recipe_page(recipe_id: int, request: Request, session: SessionDep, user: UserDep, added: int | None = None):
+        return render(request, "recipe.html", user, recipe=own_recipe(session, recipe_id), added=added)
+
+    @app.get("/recipes/{recipe_id}/edit")
+    def edit_recipe_form(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        return render(request, "recipe_form.html", user, recipe=recipe, form=recipes.form_values(recipe))
+
+    @app.post("/recipes/{recipe_id}/edit")
+    async def edit_recipe(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        form = await request.form()
+        try:
+            recipes.apply_form(recipe, form)
+        except shopping.FormError as e:
+            session.rollback()
+            return render(request, "recipe_form.html", user, status_code=422, recipe=own_recipe(session, recipe_id),
+                          error=str(e), form=dict(form))
+        shopping.bump(session)
+        session.commit()
+        return back(f"/recipes/{recipe.id}")
+
+    @app.post("/recipes/{recipe_id}/delete")
+    def delete_recipe(recipe_id: int, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        meals.keep_names(session, recipe)
+        session.delete(recipe)
+        shopping.bump(session)
+        session.commit()
+        return back("/recipes")
+
+    @app.post("/recipes/{recipe_id}/shopping")
+    async def recipe_to_shopping(recipe_id: int, request: Request, session: SessionDep, user: UserDep):
+        recipe = own_recipe(session, recipe_id)
+        form = await request.form()
+        ids = {i for i in (_int_or_none(v) for v in form.getlist("ingredient")) if i is not None}
+        added = recipes.to_shopping(session, user, recipe, ids)
+        session.commit()
+        return back(f"/recipes/{recipe.id}?added={len(added)}")
+
+    # ---- meal planner ----
+
+    def meals_context(session: Session, start, **extra) -> dict:
+        return {"start": start, "days": meals.week(session, start), "today": today(),
+                "this_week": meals.monday(today()), "prev": start - timedelta(days=7), "next": start + timedelta(days=7),
+                "recipes": recipes.search(session), "planned": meals.week_recipes(session, start),
+                "colors": user_colors(session), "rev": shopping.revision(session), **extra}
+
+    def meals_or_back(request: Request, session: Session, user: User, start, error: str = ""):
+        if wants_fragment(request):
+            return render(request, "_meals_week.html", user, status_code=422 if error else 200,
+                          **meals_context(session, start, error=error))
+        if error:
+            return render(request, "meals.html", user, status_code=422, **meals_context(session, start, error=error))
+        return back(f"/meals?week={start.isoformat()}")
+
+    @app.get("/meals")
+    def meals_page(request: Request, session: SessionDep, user: UserDep, week: str | None = None):
+        return render(request, "meals.html", user, **meals_context(session, meals.parse_week(week, today())))
+
+    @app.get("/meals/fragment")
+    def meals_fragment(request: Request, session: SessionDep, user: UserDep, week: str | None = None):
+        return render(request, "_meals_week.html", user, **meals_context(session, meals.parse_week(week, today())))
+
+    @app.post("/meals")
+    async def add_meal(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        start = meals.parse_week(str(form.get("day", "")), today())
+        try:
+            meals.add_meal(session, user, str(form.get("day", "")), str(form.get("slot", "")),
+                           form.get("recipe_id"), str(form.get("text", "")))
+        except shopping.FormError as e:
+            return meals_or_back(request, session, user, start, error=str(e))
+        session.commit()
+        return meals_or_back(request, session, user, start)
+
+    @app.post("/meals/{meal_id}/delete")
+    def delete_meal(meal_id: int, request: Request, session: SessionDep, user: UserDep):
+        meal = session.get(Meal, meal_id)
+        if meal is None:
+            raise HTTPException(404)
+        start = meals.monday(meal.day)
+        session.delete(meal)
+        shopping.bump(session)
+        session.commit()
+        return meals_or_back(request, session, user, start)
+
+    @app.get("/meals/shopping")
+    def week_shopping_page(request: Request, session: SessionDep, user: UserDep, week: str | None = None,
+                           added: int | None = None):
+        start = meals.parse_week(week, today())
+        return render(request, "meals_shopping.html", user, start=start, planned=meals.week_recipes(session, start),
+                      added=added)
+
+    @app.post("/meals/shopping")
+    async def week_to_shopping(request: Request, session: SessionDep, user: UserDep):
+        form = await request.form()
+        start = meals.parse_week(str(form.get("week", "")), today())
+        ids = {i for i in (_int_or_none(v) for v in form.getlist("ingredient")) if i is not None}
+        added = meals.week_to_shopping(session, user, start, ids)
+        session.commit()
+        return back(f"/meals/shopping?week={start.isoformat()}&added={added}")
 
     # ---- categories ----
 
