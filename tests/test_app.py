@@ -43,9 +43,21 @@ def test_tab_title_is_always_home(client):
 
 def test_food_pages_sit_together_in_the_menu(client):
     page = client.get("/shopping").text
-    for nav in (page.split('<aside')[1].split('</aside>')[0], page.split('class="tabbar"')[1]):
-        order = ["/shopping", "/recipes", "/meals", "/todos", "/watch"]
+    side, tabbar = page.split('<aside')[1].split('</aside>')[0], page.split('class="tabbar"')[1]
+    for nav, order in ((side, ["/shopping", "/recipes", "/meals", "/todos", "/watch", "/plants"]),
+                       (tabbar, ["/shopping", "/recipes", "/meals", "/todos", "/more"])):
         assert sorted(order, key=lambda u: nav.index(f'href="{u}"')) == order
+
+
+def test_phone_bar_keeps_the_rest_behind_more(client):
+    """Four everyday pages and More on the phone; More lights up on the pages it holds."""
+    tabbar = client.get("/shopping").text.split('class="tabbar"')[1]
+    assert tabbar.count("<a ") == 5 and 'href="/watch"' not in tabbar
+    for url in ("/more", "/watch", "/plants"):
+        more = client.get(url).text.split('class="tabbar"')[1].split('href="/more"')[1].split("</a>")[0]
+        assert 'aria-current="page"' in more
+    page = client.get("/more").text
+    assert 'href="/plants"' in page and 'href="/watch"' in page
 
 
 def test_migrations_match_the_models(client, tmp_path):

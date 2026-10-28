@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ version }}">
 </head>
 <body>
+{% set due = plants_due() %}
 <div class="app">
   <aside class="side" aria-label="Main">
     <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
@@ -38,6 +39,7 @@
     <a class="nav" href="/meals" {{ current('/meals') }}>{{ icon('meals') }} Meal plan</a>
     <a class="nav" href="/todos" {{ current('/todos') }}>{{ icon('todo') }} To-dos</a>
     <a class="nav" href="/watch" {{ current('/watch') }}>{{ icon('tv') }} Watch next</a>
+    <a class="nav" href="/plants" {{ current('/plants') }}>{{ icon('leaf') }} Plants{% if due %} <span class="count" title="{{ due }} need water">{{ due }}</span>{% endif %}</a>
     <div class="me"><span class="av sm">{{ user.display_name[:1]|upper }}</span> {{ user.display_name }}
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode" title="Light / dark">{{ icon('theme') }}</button></div>
     <small class="ver muted">{{ version }}</small>
@@ -57,7 +59,10 @@
     <a href="/recipes" {{ current('/recipes') }}>{{ icon('book') }}<span>Recipes</span></a>
     <a href="/meals" {{ current('/meals') }}>{{ icon('meals') }}<span>Meals</span></a>
     <a href="/todos" {{ current('/todos') }}>{{ icon('todo') }}<span>To-dos</span></a>
-    <a href="/watch" {{ current('/watch') }}>{{ icon('tv') }}<span>Watch</span></a>
+    {# Everything after the four everyday pages lives behind More, so new pages don't crowd the bar. #}
+    {% set p = request.url.path %}
+    <a href="/more" {% if p.startswith(('/more', '/watch', '/plants')) %}aria-current="page"{% endif %}>
+      <span class="tab-ic">{{ icon('more') }}{% if due %}<span class="dot" aria-label="{{ due }} plant{{ '' if due == 1 else 's' }} need water"></span>{% endif %}</span><span>More</span></a>
   </nav>
 </div>
 {% block scripts %}{% endblock %}

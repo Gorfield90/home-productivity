@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><a href="{{ '/plants/%d' % plant.id if plant else '/plants' }}" class="back">{{ icon('left') }} {{ plant.name if plant else 'Plants' }}</a>
+    <h1>{{ 'Edit plant' if plant else 'New plant' }}</h1></div>
+</div>
+<form class="card narrow" method="post" action="{{ '/plants/%d/edit' % plant.id if plant else '/plants' }}">
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <label>Name <input name="name" value="{{ form.get('name', '') }}" maxlength="60" required placeholder="e.g. Monstera" autocapitalize="words"></label>
+  <label>Where is it? <input name="spot" value="{{ form.get('spot', '') }}" maxlength="60" placeholder="optional, e.g. Living room window"></label>
+  <label>Water every <span class="every"><input name="every_days" value="{{ form.get('every_days', '') }}" inputmode="numeric" placeholder="7" aria-label="Water every how many days"> days</span>
+    <small class="muted">Leave it empty if it has no fixed schedule. The app then just shows when it was last watered.</small></label>
+  <label>Notes <textarea name="notes" rows="3" placeholder="optional, e.g. let the soil dry out first, likes a mist">{{ form.get('notes', '') }}</textarea></label>
+  <div class="form-actions"><button type="submit">{{ 'Save' if plant else 'Add plant' }}</button>
+    <a href="{{ '/plants/%d' % plant.id if plant else '/plants' }}">Cancel</a></div>
+</form>
+{% if plant %}
+<details class="narrow inline-del wide">
+  <summary class="link danger">Delete this plant</summary>
+  <form method="post" action="/plants/{{ plant.id }}/delete" class="del-box">
+    <span class="muted">Its photos and watering history go too. This can't be undone.</span><button type="submit" class="small-btn danger">Delete</button></form>
+</details>
+{% endif %}
+{% endblock %}
