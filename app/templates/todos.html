@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}To-dos · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>To-dos</h1><p>Shared lists are for both of you; personal ones only you can see.</p></div>
+  <a class="head-link" href="/todos/new">{{ icon('plus') }} New list</a>
+</div>
+<div id="live" data-src="/todos/fragment" aria-live="polite">
+  {% include "_todos_overview.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>{% endblock %}

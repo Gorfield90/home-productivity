@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}{{ todo.title }} · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/todos/{{ todo.list_id }}" class="back">{{ icon('left') }} {{ todo.todo_list.name }}</a><h1>{{ todo.title }}</h1>
+    <p>Added by {{ todo.created_by.display_name }}{% if todo.done_at %} · done{% if todo.done_by %} by {{ todo.done_by.display_name }}{% endif %}{% endif %}</p></div>
+</div>
+<form class="card narrow" method="post" action="/todos/items/{{ todo.id }}">
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <label>Task <input name="title" value="{{ form.get('title', '') }}" maxlength="200" required></label>
+  <label>Due <input type="date" name="due" value="{{ form.get('due', '') }}"></label>
+  <label>List
+    <select name="list_id">
+      {% for l in lists %}<option value="{{ l.id }}" {% if form.get('list_id')|string == l.id|string %}selected{% endif %}>{{ l.icon }} {{ l.name }}{% if not l.shared %} (only me){% endif %}</option>{% endfor %}
+    </select></label>
+  <label>For
+    <select name="assignee_id">
+      <option value="">Anyone</option>
+      {% for u in users %}<option value="{{ u.id }}" {% if form.get('assignee_id')|string == u.id|string %}selected{% endif %}>{{ u.display_name }}</option>{% endfor %}
+    </select>
+    <small class="muted">Only on shared lists.</small></label>
+  <label>Note <textarea name="note" rows="3" maxlength="1000" placeholder="optional">{{ form.get('note', '') }}</textarea></label>
+  <div class="form-actions"><button type="submit">Save</button><a href="/todos/{{ todo.list_id }}">Cancel</a></div>
+</form>
+<form class="narrow" method="post" action="/todos/items/{{ todo.id }}/delete">
+  <button type="submit" class="link danger">Delete this task</button>
+</form>
+{% endblock %}

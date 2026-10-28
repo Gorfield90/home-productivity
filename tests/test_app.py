@@ -32,7 +32,7 @@ def test_dev_user(tmp_path):
 
 
 def test_pages_render(client):
-    for url in ("/shopping", "/shopping/categories", "/static/manifest.webmanifest", "/static/shopping.js"):
+    for url in ("/shopping", "/shopping/categories", "/static/manifest.webmanifest", "/static/live.js", "/todos"):
         assert client.get(url).status_code == 200, url
 
 

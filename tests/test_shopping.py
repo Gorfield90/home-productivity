@@ -137,9 +137,9 @@ def test_unknown_item_is_404(client):
 
 
 def test_revision_moves_on_every_change(client, maguy):
-    before = maguy.get("/shopping/rev").json()["rev"]
+    before = maguy.get("/rev").json()["rev"]
     add(client, "bread")
-    after = maguy.get("/shopping/rev").json()["rev"]
+    after = maguy.get("/rev").json()["rev"]
     assert after != before
     assert f'data-rev="{after}"' in maguy.get("/shopping/list").text
 

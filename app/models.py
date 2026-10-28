@@ -1,8 +1,8 @@
-"""Data model. Everything is shared between the household's users; rows only remember who did what."""
+"""Data model. Everything is shared between the household's users (rows remember who did what), except personal to-do lists."""
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -70,3 +70,44 @@ class Item(Base):
     category: Mapped[Category | None] = relationship(lazy="joined")
     added_by: Mapped[User] = relationship(foreign_keys=[added_by_id], lazy="joined")
     checked_by: Mapped[User | None] = relationship(foreign_keys=[checked_by_id], lazy="joined")
+
+
+class TodoList(Base):
+    """A to-do list. Shared with everyone unless it has an owner, then only the owner sees it."""
+
+    __tablename__ = "todo_list"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(60))
+    icon: Mapped[str] = mapped_column(String(16), default="", server_default="")
+    owner_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"))
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    owner: Mapped[User | None] = relationship(lazy="joined")
+
+    @property
+    def shared(self) -> bool:
+        return self.owner_id is None
+
+
+class Todo(Base):
+    """A task on a list. Open while done_at is empty."""
+
+    __tablename__ = "todo"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    list_id: Mapped[int] = mapped_column(ForeignKey("todo_list.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    due: Mapped[date | None] = mapped_column(Date)
+    assignee_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"))
+    created_by_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    done_by_id: Mapped[int | None] = mapped_column(ForeignKey("user.id"))
+
+    todo_list: Mapped[TodoList] = relationship(lazy="joined")
+    assignee: Mapped[User | None] = relationship(foreign_keys=[assignee_id], lazy="joined")
+    created_by: Mapped[User] = relationship(foreign_keys=[created_by_id], lazy="joined")
+    done_by: Mapped[User | None] = relationship(foreign_keys=[done_by_id], lazy="joined")

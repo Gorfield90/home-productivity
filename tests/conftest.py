@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -5,11 +7,12 @@ from app.config import Settings
 from app.main import create_app
 
 USERS = [("pedro", "Pedro"), ("maguy", "Maguy")]
+TODAY = date(2026, 10, 28)  # a Wednesday
 
 
 @pytest.fixture
 def app(tmp_path):
-    return create_app(Settings(database_url=f"sqlite:///{tmp_path}/test.db", users=USERS))
+    return create_app(Settings(database_url=f"sqlite:///{tmp_path}/test.db", users=USERS), today=lambda: TODAY)
 
 
 @pytest.fixture

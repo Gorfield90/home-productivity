@@ -1,0 +1,34 @@
+{% from "_ui.html" import icon, avatar, due_chip %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if soon %}
+<section class="card shop">
+  <h2>Coming up</h2>
+  <ul class="items">
+    {% for t in soon %}
+    <li class="item">
+      <form method="post" action="/todos/items/{{ t.id }}/toggle" data-live data-toggle data-from="overview">
+        <button type="submit" class="tick" aria-label="Done: {{ t.title }}"><span class="box">{{ icon('check') }}</span>
+          <span class="what"><span class="name">{{ t.title }}</span> {{ due_chip(t.due) }}
+          <small class="note-line">{{ t.todo_list.icon }} {{ t.todo_list.name }}</small></span></button>
+      </form>
+      {% if t.assignee %}{{ avatar(t.assignee, colors, 'For ' ~ t.assignee.display_name) }}{% endif %}
+      <a class="edit" href="/todos/items/{{ t.id }}" aria-label="Edit {{ t.title }}" title="Edit">{{ icon('edit') }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>Lists</h2>
+  <ul class="lists">
+    {% for tl in lists %}
+    <li><a href="/todos/{{ tl.id }}"><span class="list-ic">{{ tl.icon or '📝' }}</span>
+      <span class="list-name">{{ tl.name }}{% if not tl.shared %} <span class="muted" title="Only you can see this list">{{ icon('lock') }}</span>{% endif %}</span>
+      <span class="count{% if not counts.get(tl.id) %} zero{% endif %}">{{ counts.get(tl.id, 0) }}</span></a></li>
+    {% else %}
+    <li class="empty">No lists yet. <a href="/todos/new">Make one</a>.</li>
+    {% endfor %}
+  </ul>
+</section>
+</div>

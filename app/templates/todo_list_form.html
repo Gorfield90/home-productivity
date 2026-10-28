@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}{{ tl.name if tl else 'New list' }} · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="{{ '/todos/%d' % tl.id if tl else '/todos' }}" class="back">{{ icon('left') }} {{ tl.name if tl else 'To-dos' }}</a>
+    <h1>{{ 'Edit list' if tl else 'New list' }}</h1></div>
+</div>
+<form class="card narrow" method="post" action="{{ '/todos/%d/edit' % tl.id if tl else '/todos' }}">
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  <div class="cat-edit two">
+    <label>Icon <input name="icon" value="{{ form.get('icon', '') }}" maxlength="16" placeholder="📝" class="emoji"></label>
+    <label>Name <input name="name" value="{{ form.get('name', '') }}" maxlength="60" required placeholder="e.g. Garden"></label>
+  </div>
+  <span class="field-label">Who sees it</span>
+  <div class="seg">
+    <label><input type="radio" name="visibility" value="shared" {% if form.get('visibility', 'shared') != 'personal' %}checked{% endif %}> Both of us</label>
+    <label><input type="radio" name="visibility" value="personal" {% if form.get('visibility') == 'personal' %}checked{% endif %}> Only me</label>
+  </div>
+  <div class="form-actions"><button type="submit">{{ 'Save' if tl else 'Create list' }}</button>
+    <a href="{{ '/todos/%d' % tl.id if tl else '/todos' }}">Cancel</a></div>
+</form>
+{% if tl %}
+<details class="narrow inline-del wide">
+  <summary class="link danger">Delete this list</summary>
+  <form method="post" action="/todos/{{ tl.id }}/delete" class="del-box">
+    <span class="muted">Its tasks are deleted too.</span><button type="submit" class="small-btn danger">Delete</button></form>
+</details>
+{% endif %}
+{% endblock %}

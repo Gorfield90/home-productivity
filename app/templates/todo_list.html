@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}{{ tl.name }} · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/todos" class="back">{{ icon('left') }} To-dos</a>
+    <h1>{{ tl.icon }} {{ tl.name }}</h1>
+    <p>{% if tl.shared %}Shared with everyone at home.{% else %}{{ icon('lock') }} Only you can see this list.{% endif %}</p></div>
+  <a class="head-link" href="/todos/{{ tl.id }}/edit">{{ icon('edit') }} Edit list</a>
+</div>
+
+<form class="card add-form todo-add{% if not tl.shared %} personal{% endif %}" method="post" action="/todos/{{ tl.id }}/items" data-live data-add>
+  <input name="title" placeholder="Add a task" aria-label="Task" autocomplete="off" autocapitalize="sentences"
+         enterkeyhint="done" maxlength="200" required {% if not open %}autofocus{% endif %}>
+  <input type="date" name="due" aria-label="Due date (optional)" title="Due date (optional)">
+  {% if tl.shared %}
+  <select name="assignee_id" aria-label="For whom">
+    <option value="">For anyone</option>
+    {% for u in users %}<option value="{{ u.id }}">For {{ u.display_name }}</option>{% endfor %}
+  </select>
+  {% endif %}
+  <button type="submit" aria-label="Add">{{ icon('plus') }}<span class="wide-only">Add</span></button>
+</form>
+
+<div id="live" data-src="/todos/{{ tl.id }}/fragment" aria-live="polite">
+  {% include "_todo_list.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>{% endblock %}

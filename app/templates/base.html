@@ -32,8 +32,8 @@
 <div class="app">
   <aside class="side" aria-label="Main">
     <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
-    <a class="nav" href="/shopping" {{ current('/shopping', True) }}>{{ icon('cart') }} Shopping list</a>
-    <a class="nav" href="/shopping/categories" {{ current('/shopping/categories') }}>{{ icon('aisles') }} Aisles</a>
+    <a class="nav" href="/shopping" {{ current('/shopping') }}>{{ icon('cart') }} Shopping list</a>
+    <a class="nav" href="/todos" {{ current('/todos') }}>{{ icon('todo') }} To-dos</a>
     <div class="me"><span class="av sm">{{ user.display_name[:1]|upper }}</span> {{ user.display_name }}
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode" title="Light / dark">{{ icon('theme') }}</button></div>
     <small class="ver muted">{{ version }}</small>
@@ -41,13 +41,17 @@
 
   <header class="mobile-top">
     <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
-    <span class="top-actions"><button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode">{{ icon('theme') }}</button>
-      <a class="gear" href="/shopping/categories" aria-label="Aisles" title="Aisles" {{ current('/shopping/categories') }}>{{ icon('aisles') }}</a></span>
+    <span class="top-actions"><button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode">{{ icon('theme') }}</button></span>
   </header>
 
   <main class="content">
     {% block content %}{% endblock %}
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a href="/shopping" {{ current('/shopping') }}>{{ icon('cart') }}<span>Shopping</span></a>
+    <a href="/todos" {{ current('/todos') }}>{{ icon('todo') }}<span>To-dos</span></a>
+  </nav>
 </div>
 {% block scripts %}{% endblock %}
 </body>

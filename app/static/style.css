@@ -75,11 +75,13 @@ body { background: var(--bg); }
 .top-actions { display: flex; gap: .25rem; align-items: center; }
 
 .content { padding: 1.75rem 2.25rem 3rem; max-width: 46rem; width: 100%; }
-.mobile-top { display: none; }
+.mobile-top, .tabbar { display: none; }
 
 .page-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
 .page-head h1 { font-size: 1.55rem; margin: 0; }
 .page-head p { margin: .2rem 0 0; color: var(--mut); }
+a.head-link { display: inline-flex; align-items: center; gap: .35rem; font-weight: 500; text-decoration: none; font-size: .92rem;
+  padding: .45rem .8rem; border-radius: .6rem; background: var(--card); box-shadow: var(--shadow); }
 a.back { display: inline-flex; align-items: center; gap: .2rem; font-size: .85rem; text-decoration: none; margin-bottom: .3rem; }
 
 /* ---------- components ---------- */
@@ -159,6 +161,43 @@ button.readd .icon { color: var(--acc); width: 1rem; height: 1rem; }
 .forget button .icon { width: .8rem; height: .8rem; }
 .forget button:hover { color: var(--neg); }
 
+/* ---------- to-dos ---------- */
+
+.todo-add { grid-template-columns: 1fr 10.5rem minmax(8rem, 10rem) auto; }
+.todo-add.personal { grid-template-columns: 1fr 10.5rem auto; }
+.due { display: inline-block; margin-left: .2rem; padding: 0 .45rem; border-radius: 1rem; font-size: .75rem; font-weight: 600;
+  background: var(--soft); color: var(--mut); white-space: nowrap; }
+.due.today, .due.soon { background: var(--acc-soft); color: var(--acc); }
+.due.late { background: color-mix(in srgb, var(--neg) 15%, transparent); color: var(--neg); }
+li.item.done .due { display: none; }
+
+ul.lists { list-style: none; margin: 0; padding: 0; }
+ul.lists li { list-style: none; margin: 0; border-top: 1px solid var(--line); }
+ul.lists li:first-child { border-top: 0; }
+ul.lists a { display: flex; align-items: center; gap: .7rem; padding: .7rem 0; color: var(--ink); text-decoration: none; font-weight: 500; }
+ul.lists a:hover .list-name { color: var(--acc); }
+.list-ic { font-size: 1.2rem; width: 1.6rem; text-align: center; }
+.list-name { flex: 1; min-width: 0; }
+.count { min-width: 1.6rem; padding: 0 .45rem; border-radius: 1rem; background: var(--acc-soft); color: var(--acc); font-size: .8rem;
+  font-weight: 700; text-align: center; }
+.count.zero { background: var(--soft); color: var(--mut); }
+
+details.ticked > summary { list-style: none; cursor: pointer; }
+details.ticked > summary::-webkit-details-marker, details.ticked > summary::after { display: none; }
+details.ticked > summary h2 { font-size: 1rem; margin: 0; }
+details.ticked[open] > summary { margin-bottom: .4rem; }
+.clear-done { margin: .6rem 0 0; }
+details.inline-del.wide summary { width: auto; height: auto; display: inline; color: var(--neg); font-size: .9rem; }
+
+.field-label { display: block; margin-bottom: calc(var(--pico-spacing) * .375); }
+.seg { display: inline-flex; background: var(--soft); border-radius: .6rem; padding: .2rem; gap: .2rem; margin-bottom: var(--pico-spacing); }
+.seg label { margin: 0; padding: .45rem .9rem; border-radius: .45rem; cursor: pointer; font-weight: 500; color: var(--mut); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--acc); }
+.cat-edit.two { grid-template-columns: 4.5rem 1fr; align-items: start; }
+.cat-edit.two input { margin-bottom: var(--pico-spacing); }
+
 /* ---------- aisles ---------- */
 
 .cat-row { display: flex; align-items: center; gap: .3rem; padding: .45rem 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
@@ -181,7 +220,16 @@ details.inline-del .del-box { display: flex; gap: .5rem; flex-wrap: wrap; align-
 @media (max-width: 800px) {
   .app { display: block; }
   .side { display: none; }
-  .content { padding: .6rem 1rem 3rem; }
+  .content { padding: .6rem 1rem 6.5rem; }
+  .tabbar {
+    display: flex; position: fixed; inset: auto 0 0 0; z-index: 10; justify-content: space-around; align-items: flex-end;
+    padding: .5rem 0 calc(.6rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+    background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(10px);
+  }
+  .tabbar a { display: flex; flex-direction: column; align-items: center; gap: .1rem; font-size: .7rem; color: var(--mut); text-decoration: none; min-width: 4rem; }
+  .tabbar a[aria-current=page] { color: var(--acc); }
+  .tabbar a .icon { width: 1.35rem; height: 1.35rem; }
+  a.head-link { font-size: .85rem; padding: .35rem .65rem; }
   .mobile-top { display: flex; justify-content: space-between; align-items: center; padding: .9rem 1rem 0;
     padding-top: calc(.9rem + env(safe-area-inset-top)); }
   .mobile-top .brand { margin: 0; }
@@ -193,6 +241,12 @@ details.inline-del .del-box { display: flex; gap: .5rem; flex-wrap: wrap; align-
   .card { padding: .9rem 1rem; }
   /* The add box stays in reach while scrolling a long list in the shop. */
   .add-form { position: sticky; top: .4rem; z-index: 5; grid-template-columns: 1fr 2.9rem; }
+  .todo-add, .todo-add.personal { grid-template-columns: 1fr 1fr 2.9rem; }
+  .todo-add input[name=title] { grid-column: 1 / 3; }
+  .todo-add input[type=date] { grid-row: 2; grid-column: 1 / 2; font-size: .85rem; padding-top: 0; padding-bottom: 0; height: 2.4rem; }
+  .todo-add select { height: 2.4rem !important; padding-top: 0 !important; padding-bottom: 0 !important; }
+  .todo-add select { grid-column: 2 / -1 !important; }
+  .todo-add.personal input[type=date] { grid-column: 1 / -1; }
   .add-form select { grid-column: 1 / -1; grid-row: 2; font-size: .85rem; padding-top: .35rem; padding-bottom: .35rem; height: auto; }
   .add-form button { justify-content: center; padding: 0; height: 100%; }
   .wide-only { display: none; }

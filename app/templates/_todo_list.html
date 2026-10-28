@@ -1,0 +1,44 @@
+{% from "_ui.html" import icon, avatar, due_chip %}
+<div class="list-inner" data-rev="{{ rev }}">
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+
+{% if open %}
+<section class="card shop">
+  <ul class="items">
+    {% for t in open %}
+    <li class="item">
+      <form method="post" action="/todos/items/{{ t.id }}/toggle" data-live data-toggle>
+        <button type="submit" class="tick" aria-label="Done: {{ t.title }}"><span class="box">{{ icon('check') }}</span>
+          <span class="what"><span class="name">{{ t.title }}</span> {{ due_chip(t.due) }}
+          {% if t.note %}<small class="note-line">{{ t.note }}</small>{% endif %}</span></button>
+      </form>
+      {% if t.assignee %}{{ avatar(t.assignee, colors, 'For ' ~ t.assignee.display_name) }}{% endif %}
+      <a class="edit" href="/todos/items/{{ t.id }}" aria-label="Edit {{ t.title }}" title="Edit">{{ icon('edit') }}</a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% else %}
+<p class="card empty">{% if done %}All done. {% endif %}Nothing left to do on this list.</p>
+{% endif %}
+
+{% if done %}
+<details class="card shop ticked"{% if not open %} open{% endif %}>
+  <summary><h2>Done <small class="muted">{{ done_total }}</small></h2></summary>
+  <ul class="items">
+    {% for t in done %}
+    <li class="item done">
+      <form method="post" action="/todos/items/{{ t.id }}/toggle" data-live data-toggle>
+        <button type="submit" class="tick" aria-label="Not done: {{ t.title }}"><span class="box">{{ icon('check') }}</span>
+          <span class="what"><span class="name">{{ t.title }}</span></span></button>
+      </form>
+      {% if t.done_by %}{{ avatar(t.done_by, colors, 'Done by ' ~ t.done_by.display_name) }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if done_total > done|length %}<small class="muted">Showing the last {{ done|length }}.</small>{% endif %}
+  <form method="post" action="/todos/{{ tl.id }}/clear" data-live class="clear-done">
+    <button type="submit" class="link danger">Clear done tasks</button></form>
+</details>
+{% endif %}
+</div>
