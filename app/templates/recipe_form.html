@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
-{% block title %}{{ recipe.title if recipe else 'New recipe' }} · Home{% endblock %}
 {% block content %}
 <div class="page-head">
   <div><a href="{{ '/recipes/%d' % recipe.id if recipe else '/recipes' }}" class="back">{{ icon('left') }} {{ recipe.title if recipe else 'Recipes' }}</a>

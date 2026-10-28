@@ -32,8 +32,13 @@ def test_dev_user(tmp_path):
 
 
 def test_pages_render(client):
-    for url in ("/shopping", "/shopping/categories", "/static/manifest.webmanifest", "/static/live.js", "/todos", "/recipes", "/recipes/new", "/meals", "/meals/shopping"):
+    for url in ("/shopping", "/shopping/categories", "/static/manifest.webmanifest", "/static/live.js", "/todos", "/recipes", "/recipes/new", "/meals", "/meals/shopping", "/watch"):
         assert client.get(url).status_code == 200, url
+
+
+def test_tab_title_is_always_home(client):
+    for url in ("/shopping", "/todos", "/recipes", "/recipes/new", "/meals", "/watch", "/shopping/categories"):
+        assert "<title>Home</title>" in client.get(url).text, url
 
 
 def test_migrations_match_the_models(client, tmp_path):

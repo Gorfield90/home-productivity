@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Watch next</h1><p>Each of you adds what you'd like to watch, then let the app pick. You both get the same chance.</p></div>
+</div>
+
+<form class="card add-form" method="post" action="/watch/shows" data-live data-add>
+  <input name="title" placeholder="Add a series or movie" aria-label="Series or movie" autocomplete="off" autocapitalize="words"
+         enterkeyhint="done" maxlength="120" required>
+  <select name="kind" aria-label="Series or movie">
+    {% for k, label in KINDS.items() %}<option value="{{ k }}">{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" aria-label="Add">{{ icon('plus') }}<span class="wide-only">Add</span></button>
+</form>
+
+<div id="live" data-src="/watch/fragment" aria-live="polite">
+  {% include "_watch.html" %}
+</div>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', path='live.js') }}?v={{ version }}"></script>{% endblock %}

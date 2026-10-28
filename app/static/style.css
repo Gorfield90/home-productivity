@@ -258,6 +258,24 @@ details.add-meal .seg { margin: 0; justify-self: start; }
 .sticky-actions { position: sticky; bottom: 0; background: var(--bg); padding: .9rem 0; z-index: 2; }
 .sticky-actions button { width: auto; margin: 0; display: inline-flex; align-items: center; gap: .4rem; }
 
+/* ---------- watch next ---------- */
+
+.up-next { box-shadow: 0 0 0 2px var(--acc); }
+.eyebrow { display: block; color: var(--acc); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.card > h2.pick-title { font-size: 1.4rem; margin: .2rem 0 .3rem; }
+.pick-meta { display: flex; align-items: center; gap: .4rem; margin: 0 0 .9rem; font-size: .9rem; }
+.up-next form { margin: 0; }
+.pick-form { display: flex; flex-direction: column; align-items: flex-start; }
+.pick-form .seg { margin-bottom: .8rem; }
+button.pick-btn { width: auto; margin: 0; display: inline-flex; align-items: center; gap: .45rem; }
+.kind { display: inline-block; margin-left: .2rem; padding: 0 .45rem; border-radius: 1rem; background: var(--soft); color: var(--mut);
+  font-size: .72rem; font-weight: 600; vertical-align: .15em; }
+ul.shows li.item { justify-content: space-between; padding: .55rem 0; }
+ul.shows form.forget { flex: none; }
+ul.shows li.item.done .name { text-decoration: none; }
+ul.shows li.none { font-size: .9rem; }
+h2.aisle .av { text-transform: none; letter-spacing: 0; }
+
 /* ---------- aisles ---------- */
 
 .cat-row { display: flex; align-items: center; gap: .3rem; padding: .45rem 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
@@ -286,7 +304,7 @@ details.inline-del .del-box { display: flex; gap: .5rem; flex-wrap: wrap; align-
     padding: .5rem 0 calc(.6rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
     background: color-mix(in srgb, var(--card) 92%, transparent); backdrop-filter: blur(10px);
   }
-  .tabbar a { display: flex; flex-direction: column; align-items: center; gap: .1rem; font-size: .7rem; color: var(--mut); text-decoration: none; min-width: 4rem; }
+  .tabbar a { display: flex; flex-direction: column; align-items: center; gap: .1rem; font-size: .7rem; color: var(--mut); text-decoration: none; min-width: 3.6rem; }
   .tabbar a[aria-current=page] { color: var(--acc); }
   .tabbar a .icon { width: 1.35rem; height: 1.35rem; }
   a.head-link { font-size: .85rem; padding: .35rem .65rem; }
