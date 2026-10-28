@@ -1,0 +1,54 @@
+{% from "_ui.html" import icon %}
+{% macro current(match, exact=False) %}{% set p = request.url.path %}{% if (exact and p == match) or (not exact and p.startswith(match)) %}aria-current="page"{% endif %}{% endmacro %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#faf6f1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#171311" media="(prefers-color-scheme: dark)">
+  <title>{% block title %}Home{% endblock %}</title>
+  {# use-credentials: without the Authentik cookie the manifest fetch would get the login page. #}
+  <link rel="manifest" href="{{ url_for('static', path='manifest.webmanifest') }}" crossorigin="use-credentials">
+  <link rel="apple-touch-icon" href="{{ url_for('static', path='icon-180.png') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Home">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23c4572e'/><path d='M8 15.5 16 9l8 6.5V24H8z' fill='white'/></svg>">
+  <script>
+    // Light/dark follows the device until someone flips the switch; the choice is remembered per browser.
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    function toggleTheme() {
+      const root = document.documentElement;
+      const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      root.dataset.theme = dark ? 'light' : 'dark';
+      try { localStorage.setItem('theme', root.dataset.theme); } catch (e) {}
+    }
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', path='pico.min.css') }}?v={{ version }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='style.css') }}?v={{ version }}">
+</head>
+<body>
+<div class="app">
+  <aside class="side" aria-label="Main">
+    <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
+    <a class="nav" href="/shopping" {{ current('/shopping', True) }}>{{ icon('cart') }} Shopping list</a>
+    <a class="nav" href="/shopping/categories" {{ current('/shopping/categories') }}>{{ icon('aisles') }} Aisles</a>
+    <div class="me"><span class="av sm">{{ user.display_name[:1]|upper }}</span> {{ user.display_name }}
+      <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode" title="Light / dark">{{ icon('theme') }}</button></div>
+    <small class="ver muted">{{ version }}</small>
+  </aside>
+
+  <header class="mobile-top">
+    <a class="brand" href="/"><i>{{ icon('home') }}</i>Home</a>
+    <span class="top-actions"><button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Switch light or dark mode">{{ icon('theme') }}</button>
+      <a class="gear" href="/shopping/categories" aria-label="Aisles" title="Aisles" {{ current('/shopping/categories') }}>{{ icon('aisles') }}</a></span>
+  </header>
+
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>

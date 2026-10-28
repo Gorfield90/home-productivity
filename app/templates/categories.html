@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Aisles · Home{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><a href="/shopping" class="back">{{ icon('left') }} Shopping list</a><h1>Aisles</h1>
+    <p>The list is grouped by these, in this order. Put them in the order you walk through the shop.</p></div>
+</div>
+{% if error %}<p class="flash error" role="alert">{{ error }}</p>{% endif %}
+<section class="card narrow">
+  {% for c in categories %}
+  <div class="cat-row" id="cat-{{ c.id }}">
+    <form method="post" action="/shopping/categories/{{ c.id }}" class="cat-edit">
+      <input name="icon" value="{{ c.icon }}" maxlength="16" aria-label="Icon for {{ c.name }}" class="emoji">
+      <input name="name" value="{{ c.name }}" maxlength="60" required aria-label="Name">
+      <button type="submit" class="icon-btn save" aria-label="Save {{ c.name }}" title="Save">{{ icon('check') }}</button>
+    </form>
+    <span class="moves">
+      <form method="post" action="/shopping/categories/{{ c.id }}/move"><input type="hidden" name="dir" value="up">
+        <button type="submit" class="icon-btn" aria-label="Move {{ c.name }} up" {% if loop.first %}disabled{% endif %}>{{ icon('up') }}</button></form>
+      <form method="post" action="/shopping/categories/{{ c.id }}/move"><input type="hidden" name="dir" value="down">
+        <button type="submit" class="icon-btn" aria-label="Move {{ c.name }} down" {% if loop.last %}disabled{% endif %}>{{ icon('down') }}</button></form>
+    </span>
+    <details class="inline-del"><summary aria-label="Delete {{ c.name }}">{{ icon('x') }}</summary>
+      <form method="post" action="/shopping/categories/{{ c.id }}/delete" class="del-box">
+        <span class="muted">Items in it move to Other.</span><button type="submit" class="small-btn danger">Delete</button></form>
+    </details>
+  </div>
+  {% else %}
+  <p class="empty">No aisles. Everything goes under Other.</p>
+  {% endfor %}
+</section>
+<form class="card narrow cat-add" method="post" action="/shopping/categories">
+  <h2>Add an aisle</h2>
+  <div class="cat-edit">
+    <input name="icon" value="{{ form.icon if form else '' }}" maxlength="16" placeholder="🥕" aria-label="Icon" class="emoji">
+    <input name="name" value="{{ form.name if form else '' }}" maxlength="60" required placeholder="e.g. Baby" aria-label="Name">
+    <button type="submit" class="small-btn">Add</button>
+  </div>
+</form>
+{% endblock %}
