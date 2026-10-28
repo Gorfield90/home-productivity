@@ -41,6 +41,13 @@ def test_tab_title_is_always_home(client):
         assert "<title>Home</title>" in client.get(url).text, url
 
 
+def test_food_pages_sit_together_in_the_menu(client):
+    page = client.get("/shopping").text
+    for nav in (page.split('<aside')[1].split('</aside>')[0], page.split('class="tabbar"')[1]):
+        order = ["/shopping", "/recipes", "/meals", "/todos", "/watch"]
+        assert sorted(order, key=lambda u: nav.index(f'href="{u}"')) == order
+
+
 def test_migrations_match_the_models(client, tmp_path):
     """The app migrated test.db at startup; nothing in the models should be missing from it."""
     from alembic.autogenerate import compare_metadata
